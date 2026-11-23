@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>백제 레퓌제 — 가상 전시 (시제품)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap">
+<style>
+  :root{
+    --ink:#0b0a0d; --lacquer:#16110f; --lacquer2:#211915; --gold:#c9a24b; --gold2:#e6c98a; --paper:#efe6d2; --paper2:#b9ad96;
+    --fact:#7fae86; --guess:#d7a95a; --imag:#a493cf; --hold:#c0715f;
+    --serif:'Gowun Batang','Noto Serif KR','Apple SD Gothic Neo',serif;
+    --sans:'Gowun Dodum','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  }
+  html,body{margin:0;height:100%;background:var(--ink);color:var(--paper);font-family:var(--sans);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+  canvas{display:block}
+  button{font:inherit;color:inherit;cursor:pointer}
+  button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+  /* 화면 가장자리를 어둡게: 등불 하나로 걷는 느낌 */
+  #vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 55%,transparent 55%,rgba(5,4,6,.78) 100%);z-index:1}
+
+  /* 위쪽 표지 */
+  #mark{position:fixed;left:max(18px,env(safe-area-inset-left));top:16px;z-index:3;display:flex;align-items:baseline;gap:12px;pointer-events:none;opacity:0;transition:opacity .8s}
+  #mark b{font-family:var(--serif);font-size:18px;letter-spacing:.14em;color:var(--gold)}
+  #mark span{font-size:12px;letter-spacing:.08em;color:var(--paper2)}
+  #helpBtn{position:fixed;right:max(16px,env(safe-area-inset-right));top:12px;z-index:3;width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,162,75,.6);background:rgba(11,10,13,.6);color:var(--gold);font-family:var(--serif);font-size:16px;opacity:0;transition:opacity .8s}
+  body.inside #mark,body.inside #helpBtn{opacity:1}
+
+  /* 조작 안내: 들어가면 잠깐 보였다가 사라짐 */
+  #hint{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:3;display:flex;gap:18px;padding:10px 18px;border-radius:999px;background:rgba(11,10,13,.72);border:1px solid rgba(201,162,75,.35);font-size:13px;color:var(--paper2);white-space:nowrap;opacity:0;transition:opacity .8s;pointer-events:none}
+  #hint kbd{font-family:var(--sans);font-size:11px;color:var(--ink);background:var(--gold2);border-radius:4px;padding:1px 6px;margin-right:6px}
+  #hint.on{opacity:1}
+
+  /* 전시물 앞 안내 */
+  #prompt{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:3;display:none;align-items:center;gap:10px;padding:10px 20px 10px 12px;border:1px solid var(--gold);border-radius:999px;background:rgba(11,10,13,.85);font-family:var(--serif);font-size:16px;letter-spacing:.04em;box-shadow:0 0 24px rgba(201,162,75,.18)}
+  #prompt .k{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--ink);font-family:var(--sans);font-size:12px;font-weight:700}
+  #prompt small{font-family:var(--sans);font-size:12px;color:var(--paper2);letter-spacing:0}
+
+  /* 해설: 박물관 이름표처럼 오른쪽에서 나오는 카드 */
+  #panel{position:fixed;z-index:10;top:0;right:0;bottom:0;width:min(440px,92vw);background:linear-gradient(180deg,rgba(22,17,15,.97),rgba(14,11,10,.97));border-left:1px solid rgba(201,162,75,.45);box-shadow:-30px 0 60px rgba(0,0,0,.55);padding:calc(28px + env(safe-area-inset-top)) max(26px,env(safe-area-inset-right)) 28px 28px;box-sizing:border-box;overflow:auto;transform:translateX(105%);transition:transform .45s cubic-bezier(.2,.8,.2,1);line-height:1.7;-webkit-user-select:text;user-select:text}
+  #panel.open{transform:none}
+  #panel .cap{font-size:12px;letter-spacing:.18em;color:var(--paper2)}
+  #panel h2{font-family:var(--serif);font-weight:700;font-size:30px;letter-spacing:.06em;color:var(--gold2);margin:6px 0 4px}
+  #panel .emo{font-family:var(--serif);font-size:15px;color:var(--gold);letter-spacing:.3em}
+  #panel hr{border:0;height:1px;background:linear-gradient(90deg,var(--gold),transparent);margin:16px 0 8px}
+  #panel .row{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid rgba(239,230,210,.07);font-size:15px}
+  #panel .row:last-of-type{border-bottom:0}
+  #panel .note{margin-top:16px;font-size:12px;color:var(--paper2);line-height:1.6}
+  #panel .x{position:absolute;top:calc(14px + env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,162,75,.5);background:none;color:var(--gold);font-size:18px}
+  .tag{display:inline-flex;align-items:center;justify-content:center;height:22px;font-size:11px;font-weight:700;border-radius:4px;color:#141014;letter-spacing:.02em;white-space:nowrap}
+  .t-fact{background:var(--fact)}.t-guess{background:var(--guess)}.t-imag{background:var(--imag)}.t-hold{background:var(--hold)}
+
+  /* 시작 화면 */
+  #intro{position:fixed;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;
+    background:radial-gradient(ellipse 60% 55% at 50% 42%,rgba(201,162,75,.10),transparent 70%),radial-gradient(ellipse at 50% 120%,#1c1411,var(--ink) 60%);transition:opacity .9s}
+  #intro.hide{opacity:0;pointer-events:none}
+  #intro .in{max-width:620px;text-align:center}
+  #intro .kicker{font-size:12px;letter-spacing:.42em;color:var(--paper2)}
+  #intro h1{font-family:var(--serif);font-weight:700;font-size:clamp(40px,8vw,78px);letter-spacing:.16em;margin:.25em 0 .1em;color:var(--gold2);text-shadow:0 0 40px rgba(201,162,75,.25)}
+  #intro .en{font-family:var(--serif);font-size:15px;letter-spacing:.2em;color:var(--gold)}
+  #intro .rule{width:120px;height:1px;margin:26px auto;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+  #intro p{font-family:var(--serif);font-size:16px;line-height:1.9;margin:8px 0;color:var(--paper)}
+  #intro p.src{font-family:var(--sans);font-size:12px;color:var(--paper2)}
+  #intro .legend{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px;font-size:12px;color:var(--paper2);align-items:center}
+  #intro .legend .tag{padding:0 8px}
+  #start{margin-top:30px;padding:14px 34px;border-radius:999px;border:1px solid var(--gold);background:linear-gradient(180deg,rgba(201,162,75,.18),rgba(201,162,75,.04));color:var(--gold2);font-family:var(--serif);font-size:17px;letter-spacing:.14em;box-shadow:0 0 30px rgba(201,162,75,.15)}
+  #start:hover{background:rgba(201,162,75,.25)}
+  #start .flame{display:inline-block;width:9px;height:13px;margin-right:10px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(circle at 50% 70%,#fff3c4,#f2a43a 60%,#a5501c);box-shadow:0 0 12px #f2a43a;animation:flick 1.6s infinite;vertical-align:-1px}
+  @keyframes flick{0%,100%{transform:scale(1)}45%{transform:scale(.88,1.08)}70%{transform:scale(1.06,.94)}}
+
+  #fade{position:fixed;inset:0;z-index:11;background:var(--ink);opacity:0;pointer-events:none;transition:opacity .45s}
+  #fade.on{opacity:1}
+  /* 휴대폰 조이스틱 */
+  #stick{position:fixed;left:max(24px,env(safe-area-inset-left));bottom:24px;z-index:4;width:110px;height:110px;border-radius:50%;border:1px solid rgba(201,162,75,.45);background:radial-gradient(circle,rgba(201,162,75,.08),transparent 70%);display:none}
+  #knob{position:absolute;left:35px;top:35px;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 40% 35%,var(--gold2),var(--gold));box-shadow:0 0 14px rgba(201,162,75,.5)}
+  @media (pointer:coarse){body.inside #stick{display:block}}
+
+  /* 휴대폰은 가로로 */
+  #rotate{position:fixed;inset:0;z-index:20;background:var(--ink);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:14px;font-family:var(--serif)}
+  #rotate .ph{width:46px;height:78px;border:2px solid var(--gold);border-radius:9px;animation:turn 2s ease-in-out infinite}
+  @keyframes turn{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
+  @media (pointer:coarse) and (orientation:portrait){#rotate{display:flex}}
+
+  /* 가로 휴대폰처럼 화면 높이가 낮을 때 */
+  @media (max-height:500px){
+    #intro h1{font-size:40px;margin:.1em 0 0}#intro .rule{margin:12px auto}
+    #intro p{font-size:13px;line-height:1.6;margin:4px 0}#intro .legend{margin-top:8px}
+    #start{margin-top:12px;padding:10px 26px;font-size:15px}
+    #mark{top:10px}#mark b{font-size:15px}
+    #hint{bottom:14px;font-size:11px;gap:12px;padding:7px 14px}
+    #prompt{bottom:22px;font-size:14px}
+    #stick{width:96px;height:96px;bottom:14px}
+    #knob{left:28px;top:28px}
+    #panel{width:min(400px,62vw);padding-top:18px}
+    #panel h2{font-size:24px}#panel .row{font-size:13.5px;padding:7px 0}
+  }
+</style>
+</head>
+<body>
+<div id="vignette"></div>
+<div id="mark"><b>백제 레퓌제</b><span id="markSub">코스 1 · 백제문화관</span></div>
+<button id="helpBtn" aria-label="조작 안내">?</button>
+<div id="hint"></div>
+<div id="prompt"></div>
+<aside id="panel" aria-live="polite"></aside>
+<div id="stick"><div id="knob"></div></div>
+<div id="fade"></div>
+<div id="rotate"><div class="ph"></div><div>화면을 가로로 돌려 주세요</div><div style="font-size:13px;opacity:.6;font-family:var(--sans)">이 전시는 가로 화면에 맞춰져 있습니다</div></div>
+
+<div id="intro"><div class="in">
+  <div class="kicker">가상 전시 · 시제품</div>
+  <h1>백제 레퓌제</h1>
+  <div class="en">낙선전 · Salon des Refusés</div>
+  <div class="rule"></div>
+  <p>1863년 파리, 공식 살롱에서 떨어진 작품들이 따로 전시되었습니다. 그것이 낙선전입니다.</p>
+  <p class="src">(이 문장의 세부는 출처 미확인 — 미술사 자료로 대조 예정)</p>
+  <p>백제의 찬란함은 많이 주목받았지만, 그 속의 처절한 사투는 잘 보이지 않았습니다.<br>이 전시는 등불 하나를 들고 그쪽을 걷습니다.</p>
+  <div class="legend">설명은 <span class="tag t-fact">사실</span><span class="tag t-guess">추정</span><span class="tag t-imag">상상</span><span class="tag t-hold">확인 중</span> 으로 나누어 적습니다</div>
+  <button id="start"><span class="flame"></span>등불 들고 들어가기</button>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------- 전시 내용 ----------
+const ITEMS = [
+  { id:'jeongeup', name:'정읍사', sub:'그리움 · 코스 1 백제문화관', pos:[-7,0,-6],
+    rows:[
+      ['fact','행상 나간 남편이 밤길에 해를 입을까 걱정하며 달에게 비는 아내의 노래로 전한다.'],
+      ['fact','가사는 『악학궤범』 권5에 실려 전하고, 『고려사』 악지의 삼국속악 조에도 기록이 있다. (한국민족문화대백과사전 「정읍사」)'],
+      ['guess','백제 때부터 구전된 노래로 알려져 있지만, 통일신라 경덕왕 이후나 고려 시대 옛 백제 땅의 민요로 보는 견해도 있다.'],
+      ['hold','그래서 이 노래를 "백제가 전한 기억"으로 단정하지 않는다.'],
+      ['imag','기다리는 사람은 끝내 이름을 남기지 못했다.']
+    ]},
+  { id:'sataek', name:'사택지적비', sub:'허무 · 코스 1 백제문화관', pos:[0,0,-8],
+    rows:[
+      ['fact','사택지적이라는 귀족이 늙어 가는 것을 탄식하고 절을 세운 일을 새긴 비. 비문은 한국사DB 금석문에서 확인할 수 있다.'],
+      ['guess','연대는 비문의 갑인년을 654년(의자왕 14년)으로 보는 것이 일반적이다. (원문 대조 확인 중)'],
+      ['hold','발견 경위와 보관 경로는 확인 중.'],
+      ['imag','한 치 앞을 모르는 사람이 돌에 시간을 새기려 했다.']
+    ]},
+  { id:'incense', name:'금동대향로', sub:'애도 · 코스 1 백제문화관', pos:[7,0,-6],
+    rows:[
+      ['fact','1993년 12월 12일, 부여 능산리 고분군과 나성 터 사이의 백제 유적 발굴 현장에서 여러 유물과 함께 나왔다. 1996년 국보로 지정되었다. (한국민족문화대백과사전 「백제금동대향로」)'],
+      ['fact','같은 절터에서 나온 사리감에는 창왕(위덕왕) 13년(567)에 공주가 사리를 공양했다는 글이 있다. (같은 사전 「부여 능산리 사지 석조 사리감」)'],
+      ['guess','그래서 이 절은 성왕의 명복을 빌려고 세운 것으로 해석된다. (같은 사전)'],
+      ['hold','향로 자체를 위덕왕이 성왕 추모를 위해 만들었다는 것, 멸망 때 급히 묻었다는 것은 확인 중.'],
+      ['hold','누가, 왜 숨겼는지는 알려져 있지 않다.'],
+      ['imag','이름 모를 누군가가 이것을 흙 속에 맡겼다고 상상해 본다.']
+    ]},
+  { id:'gate', name:'코스 2 — 백제역사관', sub:'준비 중', pos:[-10.7,0,5], rotY:Math.PI/2,
+    rows:[
+      ['hold','쓰러지고 일어서다: 한성의 끝부터 부흥운동까지. 사료 확인이 끝나는 대로 열립니다.'],
+      ['fact','계획된 장면: 개로왕과 문주왕 · 무령왕과 성왕의 중흥 · 성왕 전사 · 위덕왕 · 계백과 황산벌 · 멸망 · 부흥운동'],
+      ['imag','마지막에는 관람객에게 질문을 남깁니다.']
+    ]}
+];
+// 배치와 감정 단어(기획서 '감정과 유물의 대응' 초안)
+const META={
+  jeongeup:{pos:[-6.5,0,-4.6],emo:'그리움',course:'코스 1 · 백제문화관'},
+  sataek:{pos:[0,0,-6.6],emo:'허무',course:'코스 1 · 백제문화관'},
+  incense:{pos:[6.5,0,-4.6],emo:'애도',course:'코스 1 · 백제문화관'},
+  gate:{pos:[-10.75,0,4.5],rotY:Math.PI/2,emo:'들어가기',course:'코스 2'}
+};
+ITEMS.forEach(it=>Object.assign(it,META[it.id]||{}));
+const TAGNAME={fact:'사실',guess:'추정',imag:'상상',hold:'확인 중'};
+
+// ---------- 기본 장면 ----------
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x07060a);
+scene.fog=new THREE.FogExp2(0x07060a,.03);
+const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.1,120);
+function fitCamera(){camera.aspect=innerWidth/innerHeight;camera.fov=camera.aspect<1?74:58;camera.updateProjectionMatrix();}
+fitCamera();
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.45;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x4a4466,0x1a120e,1.0));
+const ROOM={x:11,zmin:-11,zmax:11,h:6.2};
+
+// ---------- 캔버스로 만든 무늬 ----------
+const REDRAW=[];
+function tex(w,h,draw,rep,font){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);
+  if(font)REDRAW.push(()=>{const x=c.getContext('2d');x.clearRect(0,0,w,h);draw(x,w,h);t.needsUpdate=true;});if(rep){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rep[0],rep[1]);}t.anisotropy=4;return t;}
+function lotus(x,cx,cy,r,col){x.save();x.translate(cx,cy);x.strokeStyle=col;x.lineWidth=1.4;
+  for(let i=0;i<8;i++){x.rotate(Math.PI/4);x.beginPath();x.moveTo(0,r*.18);x.quadraticCurveTo(r*.28,r*.55,0,r);x.quadraticCurveTo(-r*.28,r*.55,0,r*.18);x.stroke();}
+  x.beginPath();x.arc(0,0,r*.16,0,Math.PI*2);x.stroke();x.restore();}
+// 바닥: 어두운 전돌. 몇 장에만 희미한 연꽃무늬
+const floorTex=tex(512,512,(x,w,h)=>{x.fillStyle='#1b1618';x.fillRect(0,0,w,h);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){const g=18+((i*7+j*13)%9);x.fillStyle=`rgb(${g+8},${g+4},${g+6})`;x.fillRect(i*128+2,j*128+2,124,124);}
+  for(let k=0;k<2600;k++){x.fillStyle=`rgba(255,240,220,${Math.random()*.035})`;x.fillRect(Math.random()*w,Math.random()*h,1.5,1.5);}
+  lotus(x,64,64,46,'rgba(201,162,75,.16)');lotus(x,320,320,46,'rgba(201,162,75,.16)');},[5.5,5.5]);
+// 벽: 세로 널판
+const wallTex=tex(512,512,(x,w,h)=>{x.fillStyle='#1d1513';x.fillRect(0,0,w,h);
+  for(let i=0;i<8;i++){const g=24+(i*5)%10;x.fillStyle=`rgb(${g+10},${g+2},${g})`;x.fillRect(i*64+1,0,62,h);
+    for(let k=0;k<40;k++){x.strokeStyle=`rgba(0,0,0,${.08+Math.random()*.1})`;x.beginPath();const xx=i*64+Math.random()*62;x.moveTo(xx,0);x.bezierCurveTo(xx+4,h*.3,xx-4,h*.6,xx+2,h);x.stroke();}}
+  },[4,1]);
+// 비석 면: 글자 칸만 희미하게(비문은 원문 대조 뒤에 넣음)
+const stoneTex=tex(256,512,(x,w,h)=>{x.fillStyle='#8a8478';x.fillRect(0,0,w,h);
+  for(let k=0;k<5000;k++){const v=Math.random()*60;x.fillStyle=`rgba(${v},${v},${v},.12)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}
+  x.strokeStyle='rgba(40,36,30,.35)';x.lineWidth=1;for(let i=1;i<8;i++){x.beginPath();x.moveTo(i*w/8,30);x.lineTo(i*w/8,h-30);x.stroke();}
+  x.fillStyle='rgba(40,36,30,.22)';for(let i=0;i<7;i++)for(let j=0;j<14;j++){if(Math.random()<.85)x.fillRect(i*w/8+w/16+6,40+j*32,w/8-26,18);} });
+function glowTex(inner,outer){return tex(128,128,(x,w,h)=>{const g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,inner);g.addColorStop(.35,outer);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,w,h);});}
+const GLOW_WARM=glowTex('rgba(255,236,190,1)','rgba(242,164,58,.35)');
+const GLOW_MOON=glowTex('rgba(255,250,230,1)','rgba(200,205,255,.25)');
+function glow(t,size,op){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:op??1}));s.scale.set(size,size,1);return s;}
+// 글씨 판(가로 또는 세로쓰기)
+function textPlane(lines,{w=4,h=1,size=64,color='#e6c98a',bg=null,vertical=false,font='Gowun Batang',even=false}={}){
+  const cw=vertical?256:1024, ch=vertical?1024:256;
+  const t=tex(cw,ch,(x,W,H)=>{if(bg){x.fillStyle=bg;x.fillRect(0,0,W,H);}x.fillStyle=color;x.textAlign='center';x.textBaseline='middle';
+    if(vertical){x.font=`700 ${size}px "${font}",serif`;const chars=[...lines[0].replace(/\s/g,'')];const step=Math.min(size*1.25,(H-80)/chars.length);chars.forEach((c,i)=>x.fillText(c,W/2,60+step*(i+.5)));
+      if(lines[1]){x.font=`400 ${size*.42}px "${font}",serif`;x.globalAlpha=.7;[...lines[1]].forEach((c,i)=>x.fillText(c,W*.82,H-60-(lines[1].length-i)*size*.5));}}
+    else lines.forEach((l,i)=>{const sub=i&&!even;x.font=`${sub?400:700} ${sub?size*.5:size}px "${font}",serif`;x.globalAlpha=sub?.75:1;x.fillText(l,W/2,H/2+(i-(lines.length-1)/2)*size*(even?1.25:1.05));});},null,true);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));return m;}
+
+// ---------- 전시관 ----------
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.x*2,ROOM.zmax-ROOM.zmin),new THREE.MeshStandardMaterial({map:floorTex,roughness:.82,metalness:.05}));
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+const wallMat=new THREE.MeshStandardMaterial({map:wallTex,roughness:.95});
+function wall(w,x,z,ry){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,ROOM.h),wallMat);m.position.set(x,ROOM.h/2,z);m.rotation.y=ry;m.receiveShadow=true;scene.add(m);
+  const base=new THREE.Mesh(new THREE.BoxGeometry(w,.35,.12),new THREE.MeshStandardMaterial({color:0x2a1f19,roughness:.9}));base.position.set(x,.17,z);base.rotation.y=ry;base.translateZ(.06);scene.add(base);}
+wall(22,0,ROOM.zmin,0);wall(22,0,ROOM.zmax,Math.PI);wall(22,-ROOM.x,0,Math.PI/2);wall(22,ROOM.x,0,-Math.PI/2);
+
+// 붉은 기둥과 주춧돌, 위로 지나가는 보
+const COLS=[];const pillarMat=new THREE.MeshStandardMaterial({color:0x5b1d16,roughness:.6}),plinth=new THREE.MeshStandardMaterial({color:0x6d675e,roughness:1}),beamMat=new THREE.MeshStandardMaterial({color:0x241914,roughness:.9});
+function pillar(x,z){const g=new THREE.Group();g.position.set(x,0,z);
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(.48,.56,.32,16),plinth);b.position.y=.16;
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(.3,.34,ROOM.h-.3,20),pillarMat);p.position.y=.3+(ROOM.h-.3)/2;p.castShadow=true;
+  const cap=new THREE.Mesh(new THREE.BoxGeometry(.8,.24,.8),beamMat);cap.position.y=ROOM.h-.1;
+  g.add(b,p,cap);scene.add(g);COLS.push([x,z,.62]);}
+[-8,-3.5,1,6.5].forEach(z=>{pillar(-9.9,z);pillar(9.9,z);});[-5.2,5.2].forEach(x=>pillar(x,-9.9));
+// 기둥에 단 작은 등: 벽과 기둥을 따뜻하게 비춤
+[[-9.9,-3.5],[9.9,-3.5],[-9.9,6.5],[9.9,6.5]].forEach(([x,z])=>{const sx=x>0?x-.42:x+.42;
+  const box=new THREE.Mesh(new THREE.BoxGeometry(.16,.24,.16),new THREE.MeshStandardMaterial({color:0xffc27a,emissive:0xff9d3a,emissiveIntensity:1.6}));box.position.set(sx,3.1,z);scene.add(box);
+  const gl=glow(GLOW_WARM,1.6,.8);gl.position.set(sx,3.1,z);scene.add(gl);
+  const pl=new THREE.PointLight(0xff9f50,1.1,9,2);pl.position.set(sx+(x>0?-.3:.3),3.1,z);scene.add(pl);});
+for(let z=-8;z<=8;z+=4){const bm=new THREE.Mesh(new THREE.BoxGeometry(22,.34,.4),beamMat);bm.position.set(0,ROOM.h,z);scene.add(bm);}
+for(const x of[-9.9,9.9]){const bm=new THREE.Mesh(new THREE.BoxGeometry(.4,.34,22),beamMat);bm.position.set(x,ROOM.h-.05,0);scene.add(bm);}
+
+// 뒷벽: 전시 제목과 세로 걸개
+const title=textPlane(['백제 레퓌제','낙선전 · 남은 목소리'],{w:6,h:1.5,size:120});title.position.set(0,4.55,ROOM.zmin+.05);scene.add(title);
+const titleLight=new THREE.SpotLight(0xffd9a0,.9,9,.55,.7);titleLight.position.set(0,6,ROOM.zmin+3);titleLight.target=title;scene.add(titleLight);
+function banner(textLines,x){const cloth=new THREE.Mesh(new THREE.PlaneGeometry(1.25,3.9),new THREE.MeshStandardMaterial({color:0x3b1712,roughness:1,side:THREE.DoubleSide}));
+  cloth.position.set(x,3.6,ROOM.zmin+.08);scene.add(cloth);const t=textPlane(textLines,{w:1.1,h:3.6,size:120,vertical:true,color:'#e6c98a'});t.position.set(x,3.6,ROOM.zmin+.1);scene.add(t);
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,1.6,8),new THREE.MeshStandardMaterial({color:0xc9a24b,metalness:.7,roughness:.3}));rod.rotation.z=Math.PI/2;rod.position.set(x,5.6,ROOM.zmin+.12);scene.add(rod);}
+banner(['남은 목소리'],-3.1);banner(['쓰러지고 일어서다'],3.1);
+
+// ---------- 전시대 ----------
+const gold=new THREE.MeshStandardMaterial({color:0xc9a24b,metalness:.85,roughness:.32,emissive:0x2a1c06});
+const stone=new THREE.MeshStandardMaterial({map:stoneTex,roughness:1});
+const plinthDark=new THREE.MeshStandardMaterial({color:0x2a2226,roughness:.7}),plinthTop=new THREE.MeshStandardMaterial({color:0x14100f,roughness:.4,metalness:.2});
+const glassMat=new THREE.MeshStandardMaterial({color:0xbfd8ff,transparent:true,opacity:.07,roughness:.05,metalness:.1,depthWrite:false});
+const edgeMat=new THREE.LineBasicMaterial({color:0xc9a24b,transparent:true,opacity:.45});
+const beamConeMat=new THREE.MeshBasicMaterial({color:0xffdcaa,transparent:true,opacity:.045,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+const ANIM=[];
+
+function makeIncense(){const o=new THREE.Group();
+  const dragon=new THREE.Mesh(new THREE.TorusKnotGeometry(.22,.06,80,10,2,3),gold);dragon.position.y=.2;dragon.rotation.x=Math.PI/2;
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(.05,.07,.25,10),gold);stem.position.y=.42;
+  const bowl=new THREE.Mesh(new THREE.SphereGeometry(.34,28,14,0,Math.PI*2,Math.PI/2,Math.PI/2),gold);bowl.position.y=.82;
+  for(let i=0;i<12;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(.12,10,8),gold);const a=i/12*Math.PI*2;p.scale.set(.55,1.3,.32);p.position.set(Math.cos(a)*.28,.66,Math.sin(a)*.28);p.lookAt(0,.66,0);o.add(p);}
+  const lid=new THREE.Group();lid.position.y=.82;
+  [[0,0,.24,.5],[.18,0,.17,.34],[-.18,.05,.16,.32],[0,.18,.17,.36],[.05,-.18,.16,.3],[.14,.14,.13,.26],[-.14,-.13,.13,.24],[-.14,.14,.12,.22],[.14,-.13,.12,.24],[.27,.05,.1,.18],[-.27,-.04,.1,.17],[.02,.27,.1,.18],[-.03,-.27,.1,.16]]
+    .forEach(([x,z,r,h])=>{const c=new THREE.Mesh(new THREE.ConeGeometry(r,h,7),gold);c.position.set(x,h/2,z);lid.add(c);});
+  const bird=new THREE.Group();bird.position.y=.62;const bb=new THREE.Mesh(new THREE.SphereGeometry(.07,12,10),gold);bb.scale.set(1,1.2,1.6);
+  const wl=new THREE.Mesh(new THREE.ConeGeometry(.05,.22,4),gold);wl.position.set(.08,.07,0);wl.rotation.z=-1.1;const wr=wl.clone();wr.position.x=-.08;wr.rotation.z=1.1;
+  const tail=new THREE.Mesh(new THREE.ConeGeometry(.04,.2,4),gold);tail.position.set(0,.08,-.12);tail.rotation.x=-.9;bird.add(bb,wl,wr,tail);lid.add(bird);
+  o.add(dragon,stem,bowl,lid);o.scale.setScalar(1.15);return o;}
+function makeStele(){const o=new THREE.Group();const slab=new THREE.Mesh(new THREE.BoxGeometry(.78,1.3,.2),[stone,stone,stone,stone,stone,stone]);slab.position.y=.65;
+  // 위쪽 모서리 한쪽이 떨어져 나간 듯한 조각(형상 표현일 뿐 실측 아님)
+  const chip=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.24),plinthTop);chip.position.set(.32,1.27,0);chip.rotation.z=.7;o.add(slab,chip);return o;}
+function makeMoon(it){const o=new THREE.Group();
+  const scroll=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.9,12),new THREE.MeshStandardMaterial({color:0xd9cdb0,roughness:.9}));scroll.rotation.z=Math.PI/2;scroll.position.y=.08;
+  const sheet=new THREE.Mesh(new THREE.PlaneGeometry(.86,.5),new THREE.MeshStandardMaterial({color:0xe8dfc8,roughness:1,side:THREE.DoubleSide}));sheet.rotation.x=-Math.PI/2+.25;sheet.position.set(0,.06,.24);
+  const lantern=new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,.2,10),new THREE.MeshStandardMaterial({color:0xffb766,emissive:0xff9a3d,emissiveIntensity:1.4}));lantern.position.set(.42,.1,-.12);
+  o.add(scroll,sheet,lantern);
+  const moon=new THREE.Mesh(new THREE.SphereGeometry(.32,32,20),new THREE.MeshStandardMaterial({color:0xf3eed6,emissive:0xe8e0b8,emissiveIntensity:.9,roughness:1}));moon.position.y=2.25;
+  const halo=glow(GLOW_MOON,2.6,.55);halo.position.y=2.25;o.add(moon,halo);it.moon=moon;it.halo=halo;return o;}
+
+ITEMS.forEach(it=>{
+  const g=new THREE.Group();g.position.set(...it.pos);if(it.rotY)g.rotation.y=it.rotY;
+  if(it.id==='gate'){
+    const frameMat=pillarMat;
+    const l=new THREE.Mesh(new THREE.BoxGeometry(.36,4.2,.36),frameMat);l.position.set(-1.9,2.1,0);const r=l.clone();r.position.x=1.9;
+    const top=new THREE.Mesh(new THREE.BoxGeometry(4.6,.42,.5),beamMat);top.position.y=4.35;
+    const voidM=new THREE.Mesh(new THREE.PlaneGeometry(3.45,4.2),new THREE.MeshBasicMaterial({color:0x020205}));voidM.position.set(0,2.1,-.02);
+    const plate=textPlane(['코스 2 · 백제역사관','쓰러지고 일어서다'],{w:3.2,h:.8,size:90});plate.position.set(0,4.95,.05);
+    const blue=new THREE.PointLight(0x6f86c8,.7,5,2);blue.position.set(0,2,.8);
+    g.add(l,r,top,voidM,plate,blue);
+  } else {
+    const base=new THREE.Mesh(new THREE.BoxGeometry(1.9,.18,1.9),plinthDark);base.position.y=.09;
+    const body=new THREE.Mesh(new THREE.BoxGeometry(1.5,.82,1.5),plinthDark);body.position.y=.59;body.castShadow=true;body.receiveShadow=true;
+    const top=new THREE.Mesh(new THREE.BoxGeometry(1.62,.06,1.62),plinthTop);top.position.y=1.03;top.receiveShadow=true;
+    const trim=new THREE.Mesh(new THREE.BoxGeometry(1.52,.03,1.52),gold);trim.position.y=.96;
+    g.add(base,body,top,trim);
+    const obj=it.id==='incense'?makeIncense():it.id==='sataek'?makeStele():makeMoon(it);
+    obj.position.y=1.06;obj.traverse(o=>{if(o.isMesh)o.castShadow=true;});g.add(obj);it.obj=obj;
+    if(it.id!=='jeongeup'){const glass=new THREE.Mesh(new THREE.BoxGeometry(1.36,1.6,1.36),glassMat);glass.position.y=1.06+.8;
+      const edges=new THREE.LineSegments(new THREE.EdgesGeometry(glass.geometry),edgeMat);edges.position.copy(glass.position);g.add(glass,edges);}
+    const spot=new THREE.SpotLight(0xffe0b0,2.2,10,.32,.55,1.4);spot.position.set(0,5.9,.6);spot.target=obj;spot.castShadow=true;spot.shadow.mapSize.set(512,512);spot.shadow.bias=-.0008;g.add(spot);
+    const cone=new THREE.Mesh(new THREE.ConeGeometry(1.05,4.6,32,1,true),beamConeMat);cone.position.set(0,3.6,.3);g.add(cone);
+    // 바닥 이름표
+    const label=textPlane([it.name,it.emo],{w:1.9,h:.48,size:110,bg:'rgba(11,10,13,.0)'});label.rotation.x=-Math.PI/2+.12;label.position.set(0,.02,1.55);g.add(label);
+  }
+  scene.add(g);it.group=g;
+});
+
+// ---------- 코스 2: 막별 해설 (사료 확인한 것만 '사실', 기획서 '확인한 것' 표 기준) ----------
+const DB_=id=>`한국사DB ${id}`;
+const ACTS=[
+  {title:'한성의 끝, 웅진의 시작',years:'475',rows:[
+    ['fact','『삼국사기』 권26에 「문주왕이 즉위하다」(475년 9월) 기사가 있다. ('+DB_('sg_026r_0020_0010')+', 제목만 확인)'],
+    ['hold','고구려의 공격으로 한성이 무너지고 개로왕이 죽은 뒤, 문주왕이 남쪽으로 내려와 다시 시작했다는 흐름은 원문 대조 중.'],
+    ['imag','끝난 자리에서 다시 시작해야 했던 사람들.']]},
+  {title:'흔들리는 왕권',years:'웅진 시기',rows:[
+    ['hold','귀족 세력의 반란(해구, 백가 등)과 \'대성8족\'의 범위는 확인 중. 확인 전까지 이 막에는 사실을 적지 않는다.'],
+    ['imag','밖의 적보다 안의 균열이 먼저 나라를 흔든다.']]},
+  {title:'다시 일어서다',years:'538',rows:[
+    ['fact','성왕이 도읍을 사비로 옮기고 나라 이름을 남부여라 했다. ('+DB_('sg_026r_0060_0100')+')'],
+    ['hold','무령왕 때의 중흥을 보여 줄 기사는 확인 중.']]},
+  {title:'성왕 전사',years:'553 – 554',rows:[
+    ['fact','553년 7월, 신라가 백제의 동북 변경을 빼앗아 신주를 두었다. ('+DB_('sg_026r_0060_0190')+')'],
+    ['fact','554년 7월, 성왕이 신라를 치려고 몸소 보병과 기병 쉰을 거느리고 밤에 구천에 이르렀다가, 매복한 신라군에게 목숨을 잃었다. ('+DB_('sg_026r_0060_0210')+')'],
+    ['hold','성왕이 태자(뒷날 위덕왕)를 위로하러 가다 죽었다는 서술은 『일본서기』 쪽 기록으로 보이며, 원문 확인 중.']]},
+  {title:'애통 속에서',years:'561 – 577',rows:[
+    ['fact','561년 7월, 신라 변경을 쳤으나 져서 죽은 사람이 천여 명이었다. ('+DB_('sg_027r_0020_0040')+')'],
+    ['fact','577년 10월, 신라 서쪽 변경을 쳤으나 신라 이찬 세종이 쳐부수었다. ('+DB_('sg_027r_0020_0110')+')'],
+    ['fact','능산리 절터의 사리감에는 창왕(위덕왕) 13년(567)에 공주가 사리를 공양했다는 글이 있다. (한국민족문화대백과사전 「부여 능산리 사지 석조 사리감」)'],
+    ['guess','그래서 이 절은 성왕의 명복을 빌려고 세운 것으로 해석된다. (같은 사전)']]},
+  {title:'마지막 결정',years:'660',rows:[
+    ['fact','귀양 가 있던 좌평 흥수가 백강과 탄현을 지키라고 했으나, 대신들이 반대했고 왕은 대신들의 말을 따랐다. ('+DB_('sg_028r_0020_0380')+')'],
+    ['fact','계백이 결사대 5,000명을 이끌고 황산에서 네 번 싸워 모두 이겼으나, 군사가 적고 힘이 모자라 패하고 전사했다. (같은 기사)'],
+    ['fact','당군이 도성에 다가서자 왕은 성충의 말을 듣지 않은 것을 후회했다. (같은 기사)'],
+    ['guess','이것을 \'한순간의 실수\'로 부르는 것은 기획자의 해석이다.'],
+    ['hold','계백 열전의 처자 관련 기록은 확인 중. 확인 전에는 적지 않는다.']]},
+  {title:'끝나지 않은 싸움',years:'660 – 663',rows:[
+    ['fact','복신과 승려 도침이 주류성에서 일어나, 왜에 있던 왕자 부여풍을 맞아 왕으로 세웠다. ('+DB_('sg_028r_0020_0390')+')'],
+    ['fact','얼마 뒤 복신이 도침을 죽이고 군사를 합쳤다. ('+DB_('sg_028r_0020_0400')+')'],
+    ['fact','662년, 복신과 풍이 서로 시기하다 풍이 복신을 죽였다. 백강 어귀에서 왜군은 네 번 싸워 모두 졌고 배 400척이 불탔다. 흑치상지는 3만여 명을 모아 200여 성을 되찾았으나 결국 항복했다. ('+DB_('sg_028r_0020_0410')+')']]},
+  {title:'기록이 되다',years:'그 뒤',rows:[
+    ['hold','멸망 뒤 백제의 기억이 어떤 사서와 유물을 거쳐 오늘에 닿았는지는 논지를 정리하는 중.'],
+    ['imag','살아남은 사람들이 기억을 건넸고, 그 기억이 지금 이 자리에 닿았다고 생각해 본다. (기획자의 해석)']]}
+];
+const ENDING={name:'마지막 방',emo:'질문',course:'코스 2 · 백제역사관',rows:[
+  ['imag','한 치 앞도 모르는 생로병사와 흥망성쇠 속에서, 백제 사람들은 살아남아 기억을 건넸다. (기획자의 해석)'],
+  ['imag','기억을 건네받은 당신은 무엇을 하겠습니까?']]};
+
+// ---------- 코스 2 회랑 공간 (딥시크 deepseek-flash가 작성, 2026-11-23. Claude가 검토·수정: 벽등 위치) ----------
+function buildCourse2(ctx) {
+  var THREE = ctx.THREE, scene = ctx.scene, acts = ctx.acts;
+  var N = acts.length;
+  var OX = -40, W = 7, H = 5.6, ZS = 5;
+  var ZE = -2 - (N - 1) * 6 - 9;
+  var colliders = [];
+  var stations = [];
+  var dustGeo, dustPos, dustVel;
+
+  function cloneTex(t, rx, ry) {
+    var c = t.clone();
+    c.needsUpdate = true;
+    c.wrapS = c.wrapT = THREE.RepeatWrapping;
+    c.repeat.set(rx, ry);
+    return c;
+  }
+
+  // Floor
+  var floorLen = ZS - ZE;
+  var floorMat = new THREE.MeshStandardMaterial({
+    map: cloneTex(ctx.floorTex, W / 2, floorLen / 2),
+    roughness: 0.85
+  });
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(W, floorLen), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(OX, 0, (ZS + ZE) / 2);
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Walls
+  var wallMatL = new THREE.MeshStandardMaterial({
+    map: cloneTex(ctx.wallTex, floorLen / 3, H / 3), roughness: 0.95
+  });
+  var wallMatR = new THREE.MeshStandardMaterial({
+    map: cloneTex(ctx.wallTex, floorLen / 3, H / 3), roughness: 0.95
+  });
+  var wallMatE = new THREE.MeshStandardMaterial({
+    map: cloneTex(ctx.wallTex, W / 3, H / 3), roughness: 0.95
+  });
+
+  var leftWall = new THREE.Mesh(new THREE.PlaneGeometry(floorLen, H), wallMatL);
+  leftWall.rotation.y = Math.PI / 2;
+  leftWall.position.set(OX - W / 2, H / 2, (ZS + ZE) / 2);
+  scene.add(leftWall);
+
+  var rightWall = new THREE.Mesh(new THREE.PlaneGeometry(floorLen, H), wallMatR);
+  rightWall.rotation.y = -Math.PI / 2;
+  rightWall.position.set(OX + W / 2, H / 2, (ZS + ZE) / 2);
+  scene.add(rightWall);
+
+  var endWallE = new THREE.Mesh(new THREE.PlaneGeometry(W, H), wallMatE);
+  endWallE.rotation.y = Math.PI;
+  endWallE.position.set(OX, H / 2, ZS);
+  scene.add(endWallE);
+
+  var endWallF = new THREE.Mesh(new THREE.PlaneGeometry(W, H), wallMatE);
+  endWallF.position.set(OX, H / 2, ZE);
+  scene.add(endWallF);
+
+  // Baseboards
+  var baseMat = new THREE.MeshStandardMaterial({ color: 0x2a1f19, roughness: 0.9 });
+  var bbGeo = new THREE.BoxGeometry(0.08, 0.28, floorLen);
+  var bbL = new THREE.Mesh(bbGeo, baseMat);
+  bbL.position.set(OX - W / 2 + 0.04, 0.14, (ZS + ZE) / 2);
+  scene.add(bbL);
+  var bbR = new THREE.Mesh(bbGeo, baseMat);
+  bbR.position.set(OX + W / 2 - 0.04, 0.14, (ZS + ZE) / 2);
+  scene.add(bbR);
+
+  // Pillars
+  var baseGeo = new THREE.CylinderGeometry(0.42, 0.5, 0.3, 12);
+  var baseMatP = new THREE.MeshStandardMaterial({ color: 0x6d675e, roughness: 0.9 });
+  var shaftGeo = new THREE.CylinderGeometry(0.26, 0.3, H - 0.3, 12);
+  var pillarZs = [];
+  for (var i = 0; i < N - 1; i++) {
+    var pz = -5 - i * 6;
+    pillarZs.push(pz);
+    for (var s = -1; s <= 1; s += 2) {
+      var px = OX + s * 3.15;
+      var base = new THREE.Mesh(baseGeo, baseMatP);
+      base.position.set(px, 0.15, pz);
+      base.castShadow = true;
+      scene.add(base);
+      var shaft = new THREE.Mesh(shaftGeo, ctx.mats.pillarMat);
+      shaft.position.set(px, 0.3 + (H - 0.3) / 2, pz);
+      shaft.castShadow = true;
+      scene.add(shaft);
+      colliders.push([px, pz, 0.55]);
+    }
+  }
+
+  // Ceiling beams
+  var beamGeo = new THREE.BoxGeometry(W, 0.3, 0.36);
+  for (var bz = ZS - 2; bz > ZE; bz -= 4) {
+    var beam = new THREE.Mesh(beamGeo, ctx.mats.beamMat);
+    beam.position.set(OX, H - 0.15, bz);
+    scene.add(beam);
+  }
+
+  // Stations
+  var boardGeo = new THREE.BoxGeometry(2.4, 2.8, 0.14);
+  var plinthGeo = new THREE.BoxGeometry(1.1, 0.5, 0.6);
+  var goldStripGeo = new THREE.BoxGeometry(1.1, 0.06, 0.6);
+  var goldStripMat = new THREE.MeshStandardMaterial({ color: 0xc9a24b, roughness: 0.4, metalness: 0.6 });
+
+  for (var i = 0; i < N; i++) {
+    var act = acts[i];
+    var sz = -2 - i * 6;
+    var left = (i % 2 === 0);
+    var wallX = left ? OX - W / 2 : OX + W / 2;
+    var dir = left ? 1 : -1;
+    var boardX = wallX + dir * 0.12;
+    var rotY = left ? Math.PI / 2 : -Math.PI / 2;
+
+    var board = new THREE.Mesh(boardGeo, ctx.mats.plinthDark);
+    board.position.set(boardX, 1.9, sz);
+    board.rotation.y = rotY;
+    scene.add(board);
+
+    var edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(boardGeo),
+      new THREE.LineBasicMaterial({ color: 0xc9a24b, transparent: true, opacity: 0.6 })
+    );
+    edges.position.copy(board.position);
+    edges.rotation.y = rotY;
+    scene.add(edges);
+
+    var t1 = ctx.textPlane([(i + 1) + '막', act.title], { w: 2.2, h: 1.1, size: 96 });
+    t1.position.set(boardX + dir * 0.09, 2.7, sz);
+    t1.rotation.y = rotY;
+    scene.add(t1);
+
+    var t2 = ctx.textPlane([act.years], { w: 1.6, h: 0.5, size: 80, color: '#c9a24b' });
+    t2.position.set(boardX + dir * 0.09, 1.9, sz);
+    t2.rotation.y = rotY;
+    scene.add(t2);
+
+    var plinth = new THREE.Mesh(plinthGeo, ctx.mats.plinthDark);
+    plinth.position.set(boardX + dir * 0.35, 0.25, sz);
+    plinth.rotation.y = rotY;
+    scene.add(plinth);
+
+    var strip = new THREE.Mesh(goldStripGeo, goldStripMat);
+    strip.position.set(boardX + dir * 0.35, 0.52, sz);
+    strip.rotation.y = rotY;
+    scene.add(strip);
+
+    var spot = new THREE.SpotLight(0xffe0b0, 2.0, 9, 0.5, 0.6, 1.4);
+    spot.position.set(boardX + dir * 1.6, H - 0.2, sz);
+    spot.target.position.set(boardX, 1.9, sz);
+    scene.add(spot);
+    scene.add(spot.target);
+
+    var standX = boardX + dir * 1.9;
+    stations.push({ index: i, x: standX, z: sz, board: board });
+    colliders.push([boardX + dir * 0.7, sz, 0.75]);
+  }
+
+  // Wall lamps (Claude 수정: 원래 x=±3.1이라 기둥(±3.15, 반지름 .3) 안에 묻혔음 → 기둥 안쪽 면 앞으로)
+  var lampGeo = new THREE.BoxGeometry(0.14, 0.22, 0.14);
+  var lampMat = new THREE.MeshStandardMaterial({
+    color: 0xff9d3a, emissive: 0xff9d3a, emissiveIntensity: 1.2
+  });
+  var pointCount = 0;
+  for (var i = 0; i < pillarZs.length; i++) {
+    var pz = pillarZs[i];
+    for (var s = -1; s <= 1; s += 2) {
+      var lx = OX + s * (3.15 - 0.38);
+      var lamp = new THREE.Mesh(lampGeo, lampMat);
+      lamp.position.set(lx, 3, pz);
+      scene.add(lamp);
+      var gl = ctx.glow(ctx.GLOW_WARM, 1.4, 0.8);
+      gl.position.set(lx, 3, pz);
+      scene.add(gl);
+      if (i % 2 === 0 && pointCount < 6) {
+        var pl = new THREE.PointLight(0xff9f50, 0.9, 8, 2);
+        pl.position.set(lx, 3, pz);
+        scene.add(pl);
+        pointCount++;
+      }
+    }
+  }
+
+  // Entrance end
+  var frameGeo = new THREE.BoxGeometry(0.32, 3.8, 0.32);
+  var fL = new THREE.Mesh(frameGeo, ctx.mats.pillarMat);
+  fL.position.set(OX - 1.7, 1.9, ZS - 0.16);
+  scene.add(fL);
+  var fR = new THREE.Mesh(frameGeo, ctx.mats.pillarMat);
+  fR.position.set(OX + 1.7, 1.9, ZS - 0.16);
+  scene.add(fR);
+  var lintel = new THREE.Mesh(new THREE.BoxGeometry(4, 0.36, 0.44), ctx.mats.beamMat);
+  lintel.position.set(OX, 3.95, ZS - 0.16);
+  scene.add(lintel);
+  var doorPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 3.6),
+    new THREE.MeshBasicMaterial({ color: 0x020205 })
+  );
+  doorPlane.rotation.y = Math.PI;
+  doorPlane.position.set(OX, 1.9, ZS - 0.05);
+  scene.add(doorPlane);
+  var backText = ctx.textPlane(['코스 1로 돌아가기'], { w: 2.6, h: 0.6, size: 80 });
+  backText.rotation.y = Math.PI;
+  backText.position.set(OX, 4.5, ZS - 0.2);
+  scene.add(backText);
+  var backGate = { x: OX, z: ZS - 1.0 };
+
+  // Final end
+  var endText = ctx.textPlane(['기억을 건네받은 당신은', '무엇을 하겠습니까?'], { w: 5.6, h: 1.8, size: 92, even: true });
+  endText.position.set(OX, 3, ZE + 0.1);
+  scene.add(endText);
+  var endGlow = ctx.glow(ctx.GLOW_WARM, 3, 0.35);
+  endGlow.position.set(OX, 3, ZE + 0.2);
+  scene.add(endGlow);
+  var endSpot = new THREE.SpotLight(0xffd9a0, 1.6, 12, 0.6, 0.7);
+  endSpot.position.set(OX, H, ZE + 4);
+  endSpot.target.position.set(OX, 3, ZE);
+  scene.add(endSpot);
+  scene.add(endSpot.target);
+  var endPoint = { x: OX, z: ZE + 2.5 };
+
+  // Dust
+  var dustCount = 200;
+  dustPos = new Float32Array(dustCount * 3);
+  dustVel = new Float32Array(dustCount);
+  for (var i = 0; i < dustCount; i++) {
+    dustPos[i * 3] = OX - W / 2 + Math.random() * W;
+    dustPos[i * 3 + 1] = Math.random() * H;
+    dustPos[i * 3 + 2] = ZE + Math.random() * (ZS - ZE);
+    dustVel[i] = 0.05 + Math.random() * 0.12;
+  }
+  dustGeo = new THREE.BufferGeometry();
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+  var dustMat = new THREE.PointsMaterial({
+    color: 0xffe2b0, size: 0.035, transparent: true, opacity: 0.5,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  var dust = new THREE.Points(dustGeo, dustMat);
+  scene.add(dust);
+
+  return {
+    bounds: { xmin: OX - W / 2 + 0.7, xmax: OX + W / 2 - 0.7, zmin: ZE + 0.7, zmax: ZS - 0.7 },
+    entry: { x: OX, z: ZS - 2.2, yaw: 0 },
+    colliders: colliders,
+    stations: stations,
+    backGate: backGate,
+    endPoint: endPoint,
+    update: function (t, dt) {
+      var pos = dustGeo.attributes.position.array;
+      for (var i = 0; i < dustCount; i++) {
+        pos[i * 3 + 1] += dustVel[i] * dt;
+        pos[i * 3] += Math.sin(t * 0.5 + i) * 0.002;
+        if (pos[i * 3 + 1] > H) {
+          pos[i * 3 + 1] = 0;
+          pos[i * 3] = OX - W / 2 + Math.random() * W;
+          pos[i * 3 + 2] = ZE + Math.random() * (ZS - ZE);
+        }
+      }
+      dustGeo.attributes.position.needsUpdate = true;
+    }
+  };
+}
+
+
+const C2=buildCourse2({THREE,scene,acts:ACTS,textPlane,glow,GLOW_WARM,floorTex,wallTex,mats:{pillarMat,beamMat,plinthDark,plinthTop,gold}});
+const HALL_B={xmin:-ROOM.x+.7,xmax:ROOM.x-.7,zmin:ROOM.zmin+.7,zmax:ROOM.zmax-.7};
+let area='hall';
+const C2_SPOTS=C2.stations.map((st,i)=>({id:'act'+i,name:`${i+1}막 · ${ACTS[i].title}`,emo:ACTS[i].years,course:'코스 2 · 백제역사관',rows:ACTS[i].rows,pos:[st.x,0,st.z]}))
+  .concat([{id:'back',name:'코스 1로 돌아가기',emo:'',course:'',pos:[C2.backGate.x,0,C2.backGate.z+.3],go:'hall',r:1.3},
+           Object.assign({id:'end',pos:[C2.endPoint.x,0,C2.endPoint.z]},ENDING)]);
+ITEMS.find(i=>i.id==='gate').go='c2';
+const spots=()=>area==='hall'?ITEMS:C2_SPOTS;
+const bounds=()=>area==='hall'?HALL_B:C2.bounds;
+function goArea(a){
+  const f=document.getElementById('fade');f.classList.add('on');closePanel();target=null;
+  setTimeout(()=>{area=a;
+    if(a==='c2'){player.position.set(C2.entry.x,0,C2.entry.z);yaw=C2.entry.yaw;document.getElementById('markSub').textContent='코스 2 · 백제역사관';}
+    else{const g=ITEMS.find(i=>i.id==='gate');player.position.set(g.pos[0]+2.4,0,g.pos[2]);yaw=-Math.PI/2;document.getElementById('markSub').textContent='코스 1 · 백제문화관';}
+    player.rotation.y=yaw+Math.PI;pitch=.36;
+    camera.position.set(player.position.x+Math.sin(yaw)*Math.cos(pitch)*dist,1.35+Math.sin(pitch)*dist,player.position.z+Math.cos(yaw)*Math.cos(pitch)*dist);
+    setTimeout(()=>f.classList.remove('on'),120);},450);
+}
+
+// 향로 연기
+const smokeTex=glowTex('rgba(230,225,215,.55)','rgba(200,195,190,.12)');const SMOKE=[];
+{const inc=ITEMS.find(i=>i.id==='incense');for(let i=0;i<14;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeTex,transparent:true,depthWrite:false,opacity:0}));s.userData.t=Math.random();inc.group.add(s);SMOKE.push(s);}}
+
+// 떠다니는 먼지
+const DUST_N=380,dustGeo=new THREE.BufferGeometry(),dp=new Float32Array(DUST_N*3);
+for(let i=0;i<DUST_N;i++){dp[i*3]=(Math.random()-.5)*20;dp[i*3+1]=Math.random()*5.6;dp[i*3+2]=(Math.random()-.5)*20;}
+dustGeo.setAttribute('position',new THREE.BufferAttribute(dp,3));
+const dust=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0xffe2b0,size:.035,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending}));scene.add(dust);
+
+// ---------- 관람객(등불을 든 사람) ----------
+const player=new THREE.Group();
+const robe=new THREE.Mesh(new THREE.CylinderGeometry(.2,.42,1.25,16),new THREE.MeshStandardMaterial({color:0x2e2a33,roughness:.9}));robe.position.y=.63;robe.castShadow=true;
+const collar=new THREE.Mesh(new THREE.TorusGeometry(.17,.035,8,18),new THREE.MeshStandardMaterial({color:0xc9a24b,metalness:.6,roughness:.4}));collar.rotation.x=Math.PI/2;collar.position.y=1.24;
+const head=new THREE.Mesh(new THREE.SphereGeometry(.17,18,14),new THREE.MeshStandardMaterial({color:0xd9c2a2,roughness:.8}));head.position.y=1.42;head.castShadow=true;
+const hat=new THREE.Mesh(new THREE.CylinderGeometry(.1,.13,.16,14),new THREE.MeshStandardMaterial({color:0x14110f,roughness:.6}));hat.position.y=1.6;
+const arm=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.7,6),new THREE.MeshStandardMaterial({color:0x3a2a1c}));arm.position.set(.28,1.05,.22);arm.rotation.x=-1.0;
+const lanternBox=new THREE.Mesh(new THREE.CylinderGeometry(.07,.08,.17,8),new THREE.MeshStandardMaterial({color:0xffc27a,emissive:0xff9d3a,emissiveIntensity:1.8}));lanternBox.position.set(.28,.78,.5);
+const lanternGlow=glow(GLOW_WARM,1.1,.9);lanternGlow.position.copy(lanternBox.position);
+const lanternLight=new THREE.PointLight(0xffa955,1.5,7.5,2);lanternLight.position.set(.28,.95,.5);
+player.add(robe,collar,head,hat,arm,lanternBox,lanternGlow,lanternLight);
+player.position.set(0,0,7.5);scene.add(player);
+
+// ---------- 입력 ----------
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE'||e.code==='Enter')interact();if(e.code==='Escape')closePanel();});
+addEventListener('keyup',e=>keys[e.code]=false);
+let yaw=0,pitch=.36,dist=6.4,joy={x:0,y:0},joyId=null,target=null,drag=null,movedOnce=false;
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),ground=new THREE.Plane(new THREE.Vector3(0,1,0),0),hit=new THREE.Vector3();
+const inside=()=>document.body.classList.contains('inside');
+renderer.domElement.addEventListener('pointerdown',e=>{if(open||!inside())return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY};});
+addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;yaw-=(e.clientX-drag.x)*.006;pitch=Math.max(.06,Math.min(1.05,pitch+(e.clientY-drag.y)*.005));drag.x=e.clientX;drag.y=e.clientY;});
+addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;
+  if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<6){ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ndc,camera);if(ray.ray.intersectPlane(ground,hit))target=hit.clone();}
+  drag=null;});
+addEventListener('wheel',e=>{dist=Math.max(3,Math.min(9,dist+e.deltaY*.005));});
+const stick=document.getElementById('stick'),knob=document.getElementById('knob');
+function centerKnob(){knob.style.left='';knob.style.top='';}
+stick.addEventListener('pointerdown',e=>{joyId=e.pointerId;stick.setPointerCapture(e.pointerId);moveStick(e);});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===joyId)moveStick(e);});
+stick.addEventListener('pointerup',e=>{joyId=null;joy={x:0,y:0};centerKnob();});
+function moveStick(e){const r=stick.getBoundingClientRect(),h=r.width/2,k=knob.offsetWidth/2,reach=h-k;let dx=(e.clientX-r.left-h)/reach,dy=(e.clientY-r.top-h)/reach;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}joy={x:dx,y:dy};knob.style.left=(h-k+dx*reach)+'px';knob.style.top=(h-k+dy*reach)+'px';}
+
+// ---------- 안내와 해설 ----------
+const promptEl=document.getElementById('prompt'),panel=document.getElementById('panel'),hintEl=document.getElementById('hint');
+const coarse=matchMedia('(pointer:coarse)').matches;
+hintEl.innerHTML=coarse?'<span>조이스틱 · 바닥 누르기로 이동</span><span>끌어서 둘러보기</span><span>전시물 앞에서 안내 누르기</span>'
+  :'<span><kbd>W A S D</kbd>이동</span><span><kbd>바닥 클릭</kbd>그곳으로</span><span><kbd>끌기</kbd>둘러보기</span><span><kbd>E</kbd>해설</span>';
+let hintTimer=null;function showHint(ms){hintEl.classList.add('on');clearTimeout(hintTimer);hintTimer=setTimeout(()=>hintEl.classList.remove('on'),ms||6000);}
+document.getElementById('helpBtn').onclick=()=>showHint(5000);
+let near=null,open=false;
+promptEl.addEventListener('click',interact);
+function interact(){if(open){closePanel();return;}if(!near)return;if(near.go){goArea(near.go);return;}open=true;
+  panel.innerHTML=`<button class="x" aria-label="닫기">×</button><div class="cap">${near.course}</div><h2>${near.name}</h2><div class="emo">${near.emo}</div><hr>`+
+    near.rows.map(r=>`<div class="row"><span class="tag t-${r[0]}">${TAGNAME[r[0]]}</span><span>${r[1]}</span></div>`).join('')+
+    `<div class="note">사실·추정·상상·확인 중을 나누어 적었습니다. 출처를 확인하지 못한 것은 '확인 중'으로 둡니다.</div>`;
+  panel.classList.add('open');panel.querySelector('.x').onclick=closePanel;promptEl.style.display='none';}
+function closePanel(){open=false;panel.classList.remove('open');}
+document.getElementById('start').onclick=()=>{
+  document.getElementById('intro').classList.add('hide');document.body.classList.add('inside');setTimeout(()=>showHint(7000),700);
+  if(coarse){const el=document.documentElement,fs=el.requestFullscreen||el.webkitRequestFullscreen;
+    if(fs)Promise.resolve(fs.call(el)).then(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape')).catch(()=>{});}
+};
+
+// ---------- 루프 ----------
+const clock=new THREE.Clock();
+const COLLIDERS=()=>area==='hall'?COLS.concat(ITEMS.filter(i=>i.id!=='gate').map(i=>[i.pos[0],i.pos[2],1.35])):C2.colliders;
+function loop(){
+  const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+  if(!open&&inside()){
+    let mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
+    let mz=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+joy.y;
+    let l=Math.hypot(mx,mz);const sp=3.6,s=Math.sin(yaw),c=Math.cos(yaw);let vx=0,vz=0;
+    if(l>.05){target=null;if(l>1){mx/=l;mz/=l;}vx=(mx*c+mz*s)*sp*dt;vz=(-mx*s+mz*c)*sp*dt;}
+    else if(target){const dx=target.x-player.position.x,dz=target.z-player.position.z,d=Math.hypot(dx,dz);if(d<.15)target=null;else{const st=Math.min(d,sp*dt);vx=dx/d*st;vz=dz/d*st;}}
+    if(vx||vz){
+      let nx=player.position.x+vx,nz=player.position.z+vz;
+      const B=bounds();nx=Math.max(B.xmin,Math.min(B.xmax,nx));nz=Math.max(B.zmin,Math.min(B.zmax,nz));
+      COLLIDERS().forEach(([cx,cz,r])=>{const dx=nx-cx,dz=nz-cz,d=Math.hypot(dx,dz);if(d<r&&d>0){nx=cx+dx/d*r;nz=cz+dz/d*r;}});
+      player.position.x=nx;player.position.z=nz;
+      const want=Math.atan2(vx,vz);let diff=want-player.rotation.y;diff=Math.atan2(Math.sin(diff),Math.cos(diff));player.rotation.y+=diff*Math.min(1,dt*10);
+      robe.position.y=.63+Math.abs(Math.sin(t*9))*.025;
+      if(!movedOnce){movedOnce=true;setTimeout(()=>hintEl.classList.remove('on'),2500);}
+    }
+  }
+  // 가까운 전시물
+  near=null;let best=3.1;
+  spots().forEach(it=>{const d=Math.hypot(player.position.x-it.pos[0],player.position.z-it.pos[2]);if(d<Math.min(best,it.r||3.1)){best=d;near=it;}});
+  if(near&&!open&&inside()){promptEl.style.display='flex';promptEl.innerHTML=`<span class="k">${coarse?'▶':'E'}</span>${near.name} <small>${near.emo}</small>`;}else promptEl.style.display='none';
+  // 등불이 살짝 흔들림
+  const fl=1.35+Math.sin(t*7.3)*.08+Math.sin(t*13.1)*.05;lanternLight.intensity=fl;lanternGlow.material.opacity=.75+Math.sin(t*9)*.08;
+  // 향로·달·연기
+  const inc=ITEMS.find(i=>i.id==='incense');if(inc.obj)inc.obj.rotation.y=t*.18;
+  const jm=ITEMS.find(i=>i.id==='jeongeup');if(jm.moon){jm.moon.material.emissiveIntensity=.8+Math.sin(t*1.1)*.12;jm.halo.material.opacity=.45+Math.sin(t*1.1)*.1;jm.moon.position.y=jm.halo.position.y=2.25+Math.sin(t*.6)*.05;}
+  SMOKE.forEach(s=>{s.userData.t=(s.userData.t+dt*.12)%1;const k=s.userData.t;s.position.set(Math.sin(k*9+s.id)*.12*k,1.06+1.55+k*2.2,Math.cos(k*7+s.id)*.1*k);s.scale.setScalar(.25+k*1.1);s.material.opacity=Math.sin(k*Math.PI)*.22;});
+  const p=dustGeo.attributes.position.array;for(let i=0;i<DUST_N;i++){p[i*3+1]+=dt*.05;p[i*3]+=Math.sin(t*.3+i)*dt*.02;if(p[i*3+1]>5.8)p[i*3+1]=0;}dustGeo.attributes.position.needsUpdate=true;
+  // 카메라(벽 밖으로 나가지 않게)
+  const cx=player.position.x+Math.sin(yaw)*Math.cos(pitch)*dist,cz=player.position.z+Math.cos(yaw)*Math.cos(pitch)*dist,cy=1.35+Math.sin(pitch)*dist;
+  const CB=bounds();camera.position.lerp(new THREE.Vector3(Math.max(CB.xmin-.3,Math.min(CB.xmax+.3,cx)),Math.min(cy,5.2),Math.max(CB.zmin-.3,Math.min(CB.zmax+.3,cz))),Math.min(1,dt*8));
+  C2.update(t,dt);
+  camera.lookAt(player.position.x-Math.sin(yaw)*1.6,1.25,player.position.z-Math.cos(yaw)*1.6);
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+addEventListener('resize',()=>{fitCamera();renderer.setSize(innerWidth,innerHeight);});
+camera.position.set(0,3,13);
+loop();
+// 글꼴이 늦게 오면 글씨 판을 다시 그림
+if(document.fonts)Promise.all([document.fonts.load('700 64px "Gowun Batang"'),document.fonts.load('400 64px "Gowun Batang"')]).then(()=>REDRAW.forEach(f=>f())).catch(()=>{});
+</script>
+</body>
+</html>
