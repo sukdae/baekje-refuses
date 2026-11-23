@@ -144,6 +144,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 // ---------- 전시 내용 ----------
 const ITEMS = [
@@ -292,17 +293,37 @@ function makeIncense(){const o=new THREE.Group();
   const bird=new THREE.Group();bird.position.y=.62;const bb=new THREE.Mesh(new THREE.SphereGeometry(.07,12,10),gold);bb.scale.set(1,1.2,1.6);
   const wl=new THREE.Mesh(new THREE.ConeGeometry(.05,.22,4),gold);wl.position.set(.08,.07,0);wl.rotation.z=-1.1;const wr=wl.clone();wr.position.x=-.08;wr.rotation.z=1.1;
   const tail=new THREE.Mesh(new THREE.ConeGeometry(.04,.2,4),gold);tail.position.set(0,.08,-.12);tail.rotation.x=-.9;bird.add(bb,wl,wr,tail);lid.add(bird);
-  o.add(dragon,stem,bowl,lid);o.scale.setScalar(1.15);return o;}
+  o.add(dragon,stem,bowl,lid);o.scale.setScalar(1.15);
+  // 블렌더로 만든 모형(models/hyangno.glb). 재질은 다른 금빛 전시물과 같은 gold를 쓴다. 불러오지 못하면 위의 간이 형상을 둔다.
+  if(THREE.GLTFLoader)new THREE.GLTFLoader().load('models/hyangno.glb',gl=>{
+    gl.scene.traverse(m=>{if(m.isMesh){m.material=gold;m.castShadow=true;m.receiveShadow=true;}});
+    while(o.children.length)o.remove(o.children[0]);o.scale.setScalar(1);o.add(gl.scene);},undefined,e=>console.warn('향로 모형을 불러오지 못해 간이 형상을 씁니다',e));
+  return o;}
 function makeStele(){const o=new THREE.Group();const slab=new THREE.Mesh(new THREE.BoxGeometry(.78,1.3,.2),[stone,stone,stone,stone,stone,stone]);slab.position.y=.65;
   // 위쪽 모서리 한쪽이 떨어져 나간 듯한 조각(형상 표현일 뿐 실측 아님)
-  const chip=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.24),plinthTop);chip.position.set(.32,1.27,0);chip.rotation.z=.7;o.add(slab,chip);return o;}
+  const chip=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.24),plinthTop);chip.position.set(.32,1.27,0);chip.rotation.z=.7;o.add(slab,chip);
+  // 블렌더로 만든 모형(models/sataek.glb). 불러오지 못하면(파일로 직접 열기 등) 위의 간이 형상을 그대로 둔다.
+  if(THREE.GLTFLoader)new THREE.GLTFLoader().load('models/sataek.glb',gl=>{
+    gl.scene.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
+    o.remove(slab,chip);o.add(gl.scene);},undefined,e=>console.warn('사택지적비 모형을 불러오지 못해 간이 형상을 씁니다',e));
+  return o;}
 function makeMoon(it){const o=new THREE.Group();
   const scroll=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.9,12),new THREE.MeshStandardMaterial({color:0xd9cdb0,roughness:.9}));scroll.rotation.z=Math.PI/2;scroll.position.y=.08;
   const sheet=new THREE.Mesh(new THREE.PlaneGeometry(.86,.5),new THREE.MeshStandardMaterial({color:0xe8dfc8,roughness:1,side:THREE.DoubleSide}));sheet.rotation.x=-Math.PI/2+.25;sheet.position.set(0,.06,.24);
   const lantern=new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,.2,10),new THREE.MeshStandardMaterial({color:0xffb766,emissive:0xff9a3d,emissiveIntensity:1.4}));lantern.position.set(.42,.1,-.12);
   o.add(scroll,sheet,lantern);
   const moon=new THREE.Mesh(new THREE.SphereGeometry(.32,32,20),new THREE.MeshStandardMaterial({color:0xf3eed6,emissive:0xe8e0b8,emissiveIntensity:.9,roughness:1}));moon.position.y=2.25;
-  const halo=glow(GLOW_MOON,2.6,.55);halo.position.y=2.25;o.add(moon,halo);it.moon=moon;it.halo=halo;return o;}
+  const halo=glow(GLOW_MOON,2.6,.55);halo.position.y=2.25;o.add(moon,halo);it.moon=moon;it.halo=halo;
+  // 블렌더로 만든 장면(models/jeongeup.glb): 바위 언덕에서 등불을 들고 기다리는 여인과 밤길. 전설을 시각화한 것이며 실제 인물의 모습이 아니다.
+  // 달과 빛무리는 코드로 그대로 둔다. 불러오지 못하면 두루마리·등불 간이 형상을 둔다.
+  if(THREE.GLTFLoader)new THREE.GLTFLoader().load('models/jeongeup.glb',gl=>{
+    gl.scene.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;
+      if(m.name.includes('Lantern')||(m.parent&&m.parent.name.includes('Lantern'))){m.material=new THREE.MeshStandardMaterial({color:0xffd09a,emissive:0xff9a3d,emissiveIntensity:1.6});m.castShadow=false;}}});
+    o.remove(scroll,sheet,lantern);o.add(gl.scene);
+    const lp=new THREE.Vector3(.184,.733,-.049);
+    const lg=glow(GLOW_WARM,.45,.8);lg.position.copy(lp);const ll=new THREE.PointLight(0xffa955,.6,2.2,2);ll.position.copy(lp);o.add(lg,ll);
+  },undefined,e=>console.warn('정읍사 장면을 불러오지 못해 간이 형상을 씁니다',e));
+  return o;}
 
 ITEMS.forEach(it=>{
   const g=new THREE.Group();g.position.set(...it.pos);if(it.rotY)g.rotation.y=it.rotY;
@@ -701,6 +722,16 @@ const lanternGlow=glow(GLOW_WARM,1.1,.9);lanternGlow.position.copy(lanternBox.po
 const lanternLight=new THREE.PointLight(0xffa955,1.5,7.5,2);lanternLight.position.set(.28,.95,.5);
 player.add(robe,collar,head,hat,arm,lanternBox,lanternGlow,lanternLight);
 player.position.set(0,0,7.5);scene.add(player);
+// 주인공: 영남대 마스코트 푸르마(학교 사용 허락 확인, 2026-11-23)가 푸른 백제 관복을 입은 모습. models/purma.glb (블렌더로 직접 제작)
+// 팔·다리·날개가 따로 움직이도록 나뉘어 있다. 불러오지 못하면 위의 간이 인물을 그대로 쓴다.
+const PU={};let walkAmt=0,movingNow=false;
+if(THREE.GLTFLoader)new THREE.GLTFLoader().load('models/purma.glb',gl=>{
+  gl.scene.traverse(m=>{if(m.isMesh)m.castShadow=true;});
+  ['Body','Robe','ArmR','ArmL','LegR','LegL','WingR','WingL'].forEach(k=>{PU[k]=gl.scene.getObjectByName('Purma_'+k);});
+  [robe,collar,head,hat,arm].forEach(m=>m.visible=false);
+  lanternBox.position.set(.31,.55,.36);lanternGlow.position.copy(lanternBox.position);lanternLight.position.set(.31,.62,.36);
+  PU.root=gl.scene;player.add(gl.scene);
+},undefined,e=>console.warn('푸르마 모형을 불러오지 못해 간이 인물을 씁니다',e));
 
 // ---------- 입력 ----------
 const keys={};
@@ -748,6 +779,7 @@ const clock=new THREE.Clock();
 const COLLIDERS=()=>area==='hall'?COLS.concat(ITEMS.filter(i=>i.id!=='gate').map(i=>[i.pos[0],i.pos[2],1.35])):C2.colliders;
 function loop(){
   const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+  movingNow=false;
   if(!open&&inside()){
     let mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
     let mz=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+joy.y;
@@ -760,10 +792,16 @@ function loop(){
       COLLIDERS().forEach(([cx,cz,r])=>{const dx=nx-cx,dz=nz-cz,d=Math.hypot(dx,dz);if(d<r&&d>0){nx=cx+dx/d*r;nz=cz+dz/d*r;}});
       player.position.x=nx;player.position.z=nz;
       const want=Math.atan2(vx,vz);let diff=want-player.rotation.y;diff=Math.atan2(Math.sin(diff),Math.cos(diff));player.rotation.y+=diff*Math.min(1,dt*10);
-      robe.position.y=.63+Math.abs(Math.sin(t*9))*.025;
+      robe.position.y=.63+Math.abs(Math.sin(t*9))*.025;movingNow=true;
       if(!movedOnce){movedOnce=true;setTimeout(()=>hintEl.classList.remove('on'),2500);}
     }
   }
+  // 푸르마 걷기: 다리·팔 흔들기, 날개 파닥임, 몸 들썩임
+  walkAmt+=((movingNow?1:0)-walkAmt)*Math.min(1,dt*8);
+  if(PU.root&&PU.LegR){const w=Math.sin(t*9)*walkAmt;
+    PU.LegR.rotation.x=w*.6;PU.LegL.rotation.x=-w*.6;PU.ArmL.rotation.x=-w*.5;
+    const f=Math.sin(t*(3+walkAmt*7))*(.12+.22*walkAmt);PU.WingR.rotation.z=f;PU.WingL.rotation.z=-f;
+    PU.root.position.y=Math.abs(Math.sin(t*9))*.04*walkAmt;}
   // 가까운 전시물
   near=null;let best=3.1;
   spots().forEach(it=>{const d=Math.hypot(player.position.x-it.pos[0],player.position.z-it.pos[2]);if(d<Math.min(best,it.r||3.1)){best=d;near=it;}});
