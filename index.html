@@ -28,7 +28,9 @@
   #mark b{font-family:var(--serif);font-size:18px;letter-spacing:.14em;color:var(--gold)}
   #mark span{font-size:12px;letter-spacing:.08em;color:var(--paper2)}
   #helpBtn{position:fixed;right:max(16px,env(safe-area-inset-right));top:12px;z-index:3;width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,162,75,.6);background:rgba(11,10,13,.6);color:var(--gold);font-family:var(--serif);font-size:16px;opacity:0;transition:opacity .8s}
-  body.inside #mark,body.inside #helpBtn{opacity:1}
+  #fsBtn{position:fixed;right:calc(max(16px,env(safe-area-inset-right)) + 44px);top:12px;z-index:3;width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,162,75,.6);background:rgba(11,10,13,.6);color:var(--gold);font-size:15px;line-height:1;opacity:0;transition:opacity .8s;cursor:pointer}
+  body.inside #mark,body.inside #helpBtn,body.inside #fsBtn{opacity:1}
+  body.nofs #fsBtn{display:none}
 
   /* 조작 안내: 들어가면 잠깐 보였다가 사라짐 */
   #hint{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:3;display:flex;gap:18px;padding:10px 18px;border-radius:999px;background:rgba(11,10,13,.72);border:1px solid rgba(201,162,75,.35);font-size:13px;color:var(--paper2);white-space:nowrap;opacity:0;transition:opacity .8s;pointer-events:none}
@@ -124,6 +126,7 @@
 <div id="mark"><b>백제 레퓌제</b><span id="markSub">코스 1 · 백제문화관</span><span id="prog"></span></div>
 <div id="bars"></div><div id="vignette2"></div><div id="toast"></div>
 <button id="helpBtn" aria-label="조작 안내">?</button>
+<button id="fsBtn" aria-label="전체화면" title="전체화면 (F)">⛶</button>
 <div id="hint"></div>
 <div id="prompt"></div>
 <aside id="panel" aria-live="polite"></aside>
@@ -770,9 +773,21 @@ function interact(){if(open){closePanel();return;}if(!near)return;if(near.go){go
 function closePanel(){open=false;panel.classList.remove('open');document.body.classList.remove('focus');if(focusIt)setTimeout(()=>{if(!open)focusIt=null;},700);}
 document.getElementById('start').onclick=()=>{
   document.getElementById('intro').classList.add('hide');document.body.classList.add('inside');setTimeout(()=>showHint(7000),700);
-  if(coarse){const el=document.documentElement,fs=el.requestFullscreen||el.webkitRequestFullscreen;
-    if(fs)Promise.resolve(fs.call(el)).then(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape')).catch(()=>{});}
+  goFull(); // 들어가는 순간 자동 전체화면(브라우저가 클릭 없이는 허용하지 않음)
 };
+// ---------- 전체화면 ----------
+function isFull(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
+function goFull(){const el=document.documentElement,fs=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(!fs||isFull())return;
+  Promise.resolve(fs.call(el)).then(()=>{if(coarse&&screen.orientation&&screen.orientation.lock)return screen.orientation.lock('landscape');}).catch(()=>{});}
+function exitFull(){const ex=document.exitFullscreen||document.webkitExitFullscreen;if(ex&&isFull())Promise.resolve(ex.call(document)).catch(()=>{});}
+function toggleFull(){isFull()?exitFull():goFull();}
+// 아이폰 사파리처럼 전체화면을 지원하지 않으면 버튼을 숨김(화면은 이미 창 전체를 씀)
+if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen))document.body.classList.add('nofs');
+document.getElementById('fsBtn').onclick=e=>{e.stopPropagation();toggleFull();};
+addEventListener('keydown',e=>{if(e.code==='KeyF'&&!e.repeat&&document.body.classList.contains('inside')&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName))toggleFull();});
+function syncFs(){document.getElementById('fsBtn').textContent=isFull()?'⤢':'⛶';document.getElementById('fsBtn').setAttribute('aria-label',isFull()?'전체화면 끄기':'전체화면');}
+addEventListener('fullscreenchange',syncFs);addEventListener('webkitfullscreenchange',syncFs);
 
 // ---------- 루프 ----------
 const clock=new THREE.Clock();
