@@ -74,6 +74,25 @@
 
   #fade{position:fixed;inset:0;z-index:11;background:var(--ink);opacity:0;pointer-events:none;transition:opacity .45s}
   #fade.on{opacity:1}
+  /* 해설을 볼 때: 위아래 검은 띠, 더 짙은 가장자리, 줄마다 천천히 떠오름 */
+  #bars::before,#bars::after{content:'';position:fixed;left:0;right:0;height:0;background:#000;transition:height .7s cubic-bezier(.2,.8,.2,1);z-index:2;pointer-events:none}
+  #bars::before{top:0}#bars::after{bottom:0}
+  body.focus #bars::before,body.focus #bars::after{height:8vh}
+  #vignette{transition:opacity .8s}#vignette2{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .8s;background:radial-gradient(ellipse 55% 60% at 38% 50%,transparent 35%,rgba(0,0,0,.85) 100%)}
+  body.focus #vignette2{opacity:1}
+  body.focus #hint,body.focus #stick{opacity:0;pointer-events:none}
+  #panel .row{opacity:0;transform:translateY(12px)}
+  #panel.open .row{animation:rise .8s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(.45s + var(--i)*.22s)}
+  #panel.open .cap{animation:fadein 1s both}
+  #panel.open h2{animation:fadein 1.1s .1s both}
+  #panel.open .emo{animation:fadein 1.2s .3s both}
+  #panel.open hr{animation:grow .9s .35s both;transform-origin:left}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @keyframes fadein{from{opacity:0;letter-spacing:.5em;filter:blur(3px)}}
+  @keyframes grow{from{transform:scaleX(0)}}
+  #mark #prog{color:var(--gold);letter-spacing:.06em}
+  #toast{position:fixed;left:50%;top:58px;transform:translate(-50%,-8px);z-index:6;padding:10px 20px;border-radius:999px;background:rgba(11,10,13,.85);border:1px solid var(--gold);font-family:var(--serif);font-size:15px;color:var(--gold2);opacity:0;transition:opacity .6s,transform .6s;pointer-events:none;white-space:nowrap}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
   /* 휴대폰 조이스틱 */
   #stick{position:fixed;left:max(24px,env(safe-area-inset-left));bottom:24px;z-index:4;width:110px;height:110px;border-radius:50%;border:1px solid rgba(201,162,75,.45);background:radial-gradient(circle,rgba(201,162,75,.08),transparent 70%);display:none}
   #knob{position:absolute;left:35px;top:35px;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 40% 35%,var(--gold2),var(--gold));box-shadow:0 0 14px rgba(201,162,75,.5)}
@@ -102,7 +121,8 @@
 </head>
 <body>
 <div id="vignette"></div>
-<div id="mark"><b>백제 레퓌제</b><span id="markSub">코스 1 · 백제문화관</span></div>
+<div id="mark"><b>백제 레퓌제</b><span id="markSub">코스 1 · 백제문화관</span><span id="prog"></span></div>
+<div id="bars"></div><div id="vignette2"></div><div id="toast"></div>
 <button id="helpBtn" aria-label="조작 안내">?</button>
 <div id="hint"></div>
 <div id="prompt"></div>
@@ -182,7 +202,7 @@ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.45;
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x4a4466,0x1a120e,1.0));
+const hemi=new THREE.HemisphereLight(0x4a4466,0x1a120e,1.0);scene.add(hemi);
 const ROOM={x:11,zmin:-11,zmax:11,h:6.2};
 
 // ---------- 캔버스로 만든 무늬 ----------
@@ -600,6 +620,7 @@ function buildCourse2(ctx) {
     stations: stations,
     backGate: backGate,
     endPoint: endPoint,
+    endText: endText, endGlow: endGlow, // Claude 추가: 마지막 물음 잠금용
     update: function (t, dt) {
       var pos = dustGeo.attributes.position.array;
       for (var i = 0; i < dustCount; i++) {
@@ -625,6 +646,28 @@ const C2_SPOTS=C2.stations.map((st,i)=>({id:'act'+i,name:`${i+1}막 · ${ACTS[i]
            Object.assign({id:'end',pos:[C2.endPoint.x,0,C2.endPoint.z]},ENDING)]);
 ITEMS.find(i=>i.id==='gate').go='c2';
 const spots=()=>area==='hall'?ITEMS:C2_SPOTS;
+
+// ---------- 관람 진행도: 11개를 다 봐야 마지막 물음이 열림 ----------
+const hallPieces=ITEMS.filter(i=>i.id!=='gate');
+const TOTAL=hallPieces.length+ACTS.length;
+let viewed=new Set();try{viewed=new Set(JSON.parse(localStorage.getItem('nakseon-viewed')||'[]'));}catch(e){}
+const validIds=new Set(hallPieces.map(i=>i.id).concat(ACTS.map((a,i)=>'act'+i)));
+viewed=new Set([...viewed].filter(id=>validIds.has(id)));
+const unlocked=()=>viewed.size>=TOTAL;
+const lockText=textPlane(['아직 닫혀 있는 물음','모든 전시를 보면 이 벽에 물음이 열립니다'],{w:5,h:1.4,size:78,color:'#8f8571'});
+lockText.position.set(C2.endPoint.x,3,C2.endPoint.z-2.5+.14);scene.add(lockText);
+function toast(t,ms){const el=document.getElementById('toast');el.textContent=t;el.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>el.classList.remove('on'),ms||4200);}
+function updateProg(){document.getElementById('prog').textContent=`· 본 전시 ${viewed.size}/${TOTAL}`;const u=unlocked();C2.endText.visible=u;C2.endGlow.visible=u;lockText.visible=!u;}
+function markViewed(it){if(it.go||it.id==='end'||!validIds.has(it.id))return;const was=unlocked();viewed.add(it.id);try{localStorage.setItem('nakseon-viewed',JSON.stringify([...viewed]));}catch(e){}updateProg();
+  if(!was&&unlocked())setTimeout(()=>toast('모든 전시를 보았습니다. 코스 2 회랑 끝, 마지막 방으로 가 보세요.',6000),1400);}
+function lockedRows(){const left=hallPieces.filter(i=>!viewed.has(i.id)).map(i=>i.name).concat(ACTS.map((a,i)=>viewed.has('act'+i)?null:`${i+1}막 ${a.title}`).filter(Boolean));
+  return [['hold',`아직 보지 못한 전시가 ${left.length}개 있습니다: ${left.join(', ')}`],['imag','모든 전시를 본 사람에게만 마지막 물음이 열립니다.']];}
+updateProg();
+// 해설을 볼 때 카메라가 다가갈 지점
+hallPieces.forEach(it=>{it.focus=new THREE.Vector3(it.pos[0],it.id==='jeongeup'?2.4:2.0,it.pos[2]);});
+C2.stations.forEach((st,i)=>{C2_SPOTS[i].focus=st.board.position.clone().setY(2.2);});
+C2_SPOTS.find(x=>x.id==='end').focus=new THREE.Vector3(C2.endPoint.x,3,C2.endPoint.z-2.5);
+let focusIt=null;const LT=new THREE.Vector3(0,1.25,0);
 const bounds=()=>area==='hall'?HALL_B:C2.bounds;
 function goArea(a){
   const f=document.getElementById('fade');f.classList.add('on');closePanel();target=null;
@@ -688,12 +731,12 @@ let hintTimer=null;function showHint(ms){hintEl.classList.add('on');clearTimeout
 document.getElementById('helpBtn').onclick=()=>showHint(5000);
 let near=null,open=false;
 promptEl.addEventListener('click',interact);
-function interact(){if(open){closePanel();return;}if(!near)return;if(near.go){goArea(near.go);return;}open=true;
+function interact(){if(open){closePanel();return;}if(!near)return;if(near.go){goArea(near.go);return;}open=true;focusIt=near;document.body.classList.add('focus');const ROWS=near.id==='end'&&!unlocked()?lockedRows():near.rows;markViewed(near);
   panel.innerHTML=`<button class="x" aria-label="닫기">×</button><div class="cap">${near.course}</div><h2>${near.name}</h2><div class="emo">${near.emo}</div><hr>`+
-    near.rows.map(r=>`<div class="row"><span class="tag t-${r[0]}">${TAGNAME[r[0]]}</span><span>${r[1]}</span></div>`).join('')+
+    ROWS.map((r,i)=>`<div class="row" style="--i:${i}"><span class="tag t-${r[0]}">${TAGNAME[r[0]]}</span><span>${r[1]}</span></div>`).join('')+
     `<div class="note">사실·추정·상상·확인 중을 나누어 적었습니다. 출처를 확인하지 못한 것은 '확인 중'으로 둡니다.</div>`;
   panel.classList.add('open');panel.querySelector('.x').onclick=closePanel;promptEl.style.display='none';}
-function closePanel(){open=false;panel.classList.remove('open');}
+function closePanel(){open=false;panel.classList.remove('open');document.body.classList.remove('focus');if(focusIt)setTimeout(()=>{if(!open)focusIt=null;},700);}
 document.getElementById('start').onclick=()=>{
   document.getElementById('intro').classList.add('hide');document.body.classList.add('inside');setTimeout(()=>showHint(7000),700);
   if(coarse){const el=document.documentElement,fs=el.requestFullscreen||el.webkitRequestFullscreen;
@@ -734,9 +777,21 @@ function loop(){
   const p=dustGeo.attributes.position.array;for(let i=0;i<DUST_N;i++){p[i*3+1]+=dt*.05;p[i*3]+=Math.sin(t*.3+i)*dt*.02;if(p[i*3+1]>5.8)p[i*3+1]=0;}dustGeo.attributes.position.needsUpdate=true;
   // 카메라(벽 밖으로 나가지 않게)
   const cx=player.position.x+Math.sin(yaw)*Math.cos(pitch)*dist,cz=player.position.z+Math.cos(yaw)*Math.cos(pitch)*dist,cy=1.35+Math.sin(pitch)*dist;
-  const CB=bounds();camera.position.lerp(new THREE.Vector3(Math.max(CB.xmin-.3,Math.min(CB.xmax+.3,cx)),Math.min(cy,5.2),Math.max(CB.zmin-.3,Math.min(CB.zmax+.3,cz))),Math.min(1,dt*8));
+  const CB=bounds();
+  if(open&&focusIt&&focusIt.focus){ // 해설을 보는 동안: 유물 쪽으로 천천히 다가가고 주변은 어둡게
+    const fp=focusIt.focus;let dx=player.position.x-fp.x,dz=player.position.z-fp.z;const dl=Math.hypot(dx,dz)||1;dx/=dl;dz/=dl;
+    const wide=innerWidth>700?.95:.6, back=focusIt.id==='end'?4.2:3.2;
+    const cp=new THREE.Vector3(fp.x+dx*back,fp.y+.45,fp.z+dz*back);cp.x=Math.max(CB.xmin-.3,Math.min(CB.xmax+.3,cp.x));cp.z=Math.max(CB.zmin-.3,Math.min(CB.zmax+.3,cp.z));
+    camera.position.lerp(cp,Math.min(1,dt*1.8));
+    LT.lerp(new THREE.Vector3(fp.x+dz*wide,fp.y-.15,fp.z-dx*wide),Math.min(1,dt*2.4));
+    hemi.intensity+=(.3-hemi.intensity)*Math.min(1,dt*2);
+  } else {
+    camera.position.lerp(new THREE.Vector3(Math.max(CB.xmin-.3,Math.min(CB.xmax+.3,cx)),Math.min(cy,5.2),Math.max(CB.zmin-.3,Math.min(CB.zmax+.3,cz))),Math.min(1,dt*(focusIt===null?8:3)));
+    LT.lerp(new THREE.Vector3(player.position.x-Math.sin(yaw)*1.6,1.25,player.position.z-Math.cos(yaw)*1.6),Math.min(1,dt*10));
+    hemi.intensity+=(1-hemi.intensity)*Math.min(1,dt*2);
+  }
   C2.update(t,dt);
-  camera.lookAt(player.position.x-Math.sin(yaw)*1.6,1.25,player.position.z-Math.cos(yaw)*1.6);
+  camera.lookAt(LT);
   renderer.render(scene,camera);
   requestAnimationFrame(loop);
 }
