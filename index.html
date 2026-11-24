@@ -740,7 +740,10 @@ if(THREE.GLTFLoader)new THREE.GLTFLoader().load('models/purma.glb',gl=>{
   gl.scene.traverse(m=>{if(m.isMesh)m.castShadow=true;});
   ['Body','Robe','ArmR','ArmL','LegR','LegL','WingR','WingL'].forEach(k=>{PU[k]=gl.scene.getObjectByName('Purma_'+k);});
   [robe,collar,head,hat,arm].forEach(m=>m.visible=false);
-  lanternBox.position.set(.31,.55,.36);lanternGlow.position.copy(lanternBox.position);lanternLight.position.set(.31,.62,.36);
+  // 새 모형(2026-11-24)은 등불을 직접 들고 있다: 코드 등불은 숨기고 빛만 모형 등불 자리로 옮긴다.
+  const PL=gl.scene.getObjectByName('Purma_Lantern');
+  if(PL){lanternBox.visible=false;gl.scene.updateMatrixWorld(true);const lp=new THREE.Vector3();PL.getWorldPosition(lp);lanternGlow.position.copy(lp);lanternLight.position.copy(lp);}
+  else{lanternBox.position.set(.31,.55,.36);lanternGlow.position.copy(lanternBox.position);lanternLight.position.set(.31,.62,.36);}
   PU.root=gl.scene;player.add(gl.scene);
 },undefined,e=>console.warn('푸르마 모형을 불러오지 못해 간이 인물을 씁니다',e));
 
