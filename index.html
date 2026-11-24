@@ -60,16 +60,27 @@
   #intro{position:fixed;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;
     background:radial-gradient(ellipse 60% 55% at 50% 42%,rgba(201,162,75,.10),transparent 70%),radial-gradient(ellipse at 50% 120%,#1c1411,var(--ink) 60%);transition:opacity .9s}
   #intro.hide{opacity:0;pointer-events:none}
-  #intro .in{max-width:620px;text-align:center}
-  #intro .kicker{font-size:12px;letter-spacing:.42em;color:var(--paper2)}
-  #intro h1{font-family:var(--serif);font-weight:700;font-size:clamp(40px,8vw,78px);letter-spacing:.16em;margin:.25em 0 .1em;color:var(--gold2);text-shadow:0 0 40px rgba(201,162,75,.25)}
-  #intro .en{font-family:var(--serif);font-size:15px;letter-spacing:.2em;color:var(--gold)}
-  #intro .rule{width:120px;height:1px;margin:26px auto;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
-  #intro p{font-family:var(--serif);font-size:16px;line-height:1.9;margin:8px 0;color:var(--paper)}
-  #intro p.src{font-family:var(--sans);font-size:12px;color:var(--paper2)}
-  #intro .legend{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px;font-size:12px;color:var(--paper2);align-items:center}
-  #intro .legend .tag{padding:0 8px}
-  #start{margin-top:30px;padding:14px 34px;border-radius:999px;border:1px solid var(--gold);background:linear-gradient(180deg,rgba(201,162,75,.18),rgba(201,162,75,.04));color:var(--gold2);font-family:var(--serif);font-size:17px;letter-spacing:.14em;box-shadow:0 0 30px rgba(201,162,75,.15)}
+  /* 시작 화면: 왼쪽 등불 든 푸르마, 오른쪽 제목과 버튼. 긴 설명은 '전시 소개'에 접어 둔다 */
+  #intro .in{display:flex;align-items:center;gap:clamp(28px,6vw,72px);max-width:920px;text-align:left}
+  #intro .hero{position:relative;flex:0 0 auto}
+  #intro .hero img{position:relative;display:block;height:min(64vh,460px);width:auto;filter:drop-shadow(0 24px 28px rgba(0,0,0,.55))}
+  #intro .halo{position:absolute;left:64%;top:80%;width:72%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(242,164,58,.30),rgba(242,164,58,.08) 40%,transparent 68%);animation:breathe 3.2s ease-in-out infinite}
+  @keyframes breathe{50%{opacity:.7;transform:translate(-50%,-50%) scale(.94)}}
+  #intro .txt{max-width:420px}
+  #intro .kicker{font-size:11px;letter-spacing:.42em;color:var(--paper2)}
+  #intro h1{font-family:var(--serif);font-weight:700;font-size:clamp(40px,6.4vw,68px);letter-spacing:.14em;line-height:1.15;margin:.3em 0 .15em;color:var(--gold2);text-shadow:0 0 40px rgba(201,162,75,.22)}
+  #intro .en{font-family:var(--serif);font-size:13px;letter-spacing:.2em;color:var(--gold)}
+  #intro .lead{font-family:var(--serif);font-size:16px;line-height:1.8;margin:22px 0 0;color:var(--paper)}
+  #intro details{margin-top:18px;font-size:12px;color:var(--paper2)}
+  #intro summary{cursor:pointer;list-style:none;display:inline-block;padding:4px 0;border-bottom:1px solid rgba(201,162,75,.35);letter-spacing:.12em}
+  #intro summary::-webkit-details-marker{display:none}
+  #intro summary::after{content:' +';color:var(--gold)}#intro details[open] summary::after{content:' −'}
+  #intro details p{font-family:var(--serif);font-size:13px;line-height:1.75;margin:10px 0 0;color:var(--paper)}
+  #intro details p.src{font-family:var(--sans);font-size:11px;color:var(--paper2);margin-top:4px}
+  #intro .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--paper2);align-items:center}
+  #intro .legend .tag{padding:0 7px;height:20px}
+  @media (max-width:640px) and (min-height:501px){#intro .in{flex-direction:column;gap:18px;text-align:center}#intro .hero img{height:38vh}#intro .legend{justify-content:center}}
+  #start{margin-top:26px;padding:14px 34px;border-radius:999px;border:1px solid var(--gold);background:linear-gradient(180deg,rgba(201,162,75,.18),rgba(201,162,75,.04));color:var(--gold2);font-family:var(--serif);font-size:17px;letter-spacing:.14em;box-shadow:0 0 30px rgba(201,162,75,.15)}
   #start:hover{background:rgba(201,162,75,.25)}
   #start .flame{display:inline-block;width:9px;height:13px;margin-right:10px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(circle at 50% 70%,#fff3c4,#f2a43a 60%,#a5501c);box-shadow:0 0 12px #f2a43a;animation:flick 1.6s infinite;vertical-align:-1px}
   @keyframes flick{0%,100%{transform:scale(1)}45%{transform:scale(.88,1.08)}70%{transform:scale(1.06,.94)}}
@@ -108,9 +119,11 @@
 
   /* 가로 휴대폰처럼 화면 높이가 낮을 때 */
   @media (max-height:500px){
-    #intro h1{font-size:40px;margin:.1em 0 0}#intro .rule{margin:12px auto}
-    #intro p{font-size:13px;line-height:1.6;margin:4px 0}#intro .legend{margin-top:8px}
-    #start{margin-top:12px;padding:10px 26px;font-size:15px}
+    #intro{padding:12px 24px}#intro .hero img{height:80vh}
+    #intro h1{font-size:36px;margin:.15em 0 .05em}
+    #intro .lead{font-size:13px;line-height:1.6;margin-top:10px}
+    #intro details{margin-top:8px}#intro details[open]{max-height:38vh;overflow:auto}
+    #start{margin-top:14px;padding:10px 26px;font-size:15px}
     #mark{top:10px}#mark b{font-size:15px}
     #hint{bottom:14px;font-size:11px;gap:12px;padding:7px 14px}
     #prompt{bottom:22px;font-size:14px}
@@ -135,15 +148,20 @@
 <div id="rotate"><div class="ph"></div><div>화면을 가로로 돌려 주세요</div><div style="font-size:13px;opacity:.6;font-family:var(--sans)">이 전시는 가로 화면에 맞춰져 있습니다</div></div>
 
 <div id="intro"><div class="in">
-  <div class="kicker">가상 전시 · 시제품</div>
-  <h1>백제 레퓌제</h1>
-  <div class="en">낙선전 · Salon des Refusés</div>
-  <div class="rule"></div>
-  <p>1863년 파리, 공식 살롱에서 떨어진 작품들이 따로 전시되었습니다. 그것이 낙선전입니다.</p>
-  <p class="src">(이 문장의 세부는 출처 미확인 — 미술사 자료로 대조 예정)</p>
-  <p>백제의 찬란함은 많이 주목받았지만, 그 속의 처절한 사투는 잘 보이지 않았습니다.<br>이 전시는 등불 하나를 들고 그쪽을 걷습니다.</p>
-  <div class="legend">설명은 <span class="tag t-fact">사실</span><span class="tag t-guess">추정</span><span class="tag t-imag">상상</span><span class="tag t-hold">확인 중</span> 으로 나누어 적습니다</div>
-  <button id="start"><span class="flame"></span>등불 들고 들어가기</button>
+  <div class="hero"><div class="halo"></div><img src="img/pruma-intro.png" alt="푸른 관복을 입고 등불을 든 푸르마"></div>
+  <div class="txt">
+    <div class="kicker">가상 전시 · 시제품</div>
+    <h1>백제 레퓌제</h1>
+    <div class="en">낙선전 · Salon des Refusés</div>
+    <p class="lead">등불 하나를 들고,<br>잘 보이지 않던 백제의 사투 쪽으로 걷습니다.</p>
+    <button id="start"><span class="flame"></span>등불 들고 들어가기</button>
+    <details><summary>전시 소개</summary>
+      <p>1863년 파리, 공식 살롱에서 떨어진 작품들이 따로 전시되었습니다. 그것이 낙선전입니다.</p>
+      <p class="src">(이 문장의 세부는 출처 미확인 — 미술사 자료로 대조 예정)</p>
+      <p>백제의 찬란함은 많이 주목받았지만, 그 속의 처절한 사투는 잘 보이지 않았습니다. 이 전시는 등불 하나를 들고 그쪽을 걷습니다.</p>
+      <div class="legend">설명은 <span class="tag t-fact">사실</span><span class="tag t-guess">추정</span><span class="tag t-imag">상상</span><span class="tag t-hold">확인 중</span> 으로 나누어 적습니다</div>
+    </details>
+  </div>
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
