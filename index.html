@@ -261,10 +261,18 @@ function pillar(x,z){const g=new THREE.Group();g.position.set(x,0,z);
   g.add(b,p,cap);scene.add(g);COLS.push([x,z,.62]);}
 [-8,-3.5,1,6.5].forEach(z=>{pillar(-9.9,z);pillar(9.9,z);});[-5.2,5.2].forEach(x=>pillar(x,-9.9));
 // 기둥에 단 작은 등: 벽과 기둥을 따뜻하게 비춤
+const WALL_LAMPS=[],LM_INT=.45,AO_INT=1;
 [[-9.9,-3.5],[9.9,-3.5],[-9.9,6.5],[9.9,6.5]].forEach(([x,z])=>{const sx=x>0?x-.42:x+.42;
   const box=new THREE.Mesh(new THREE.BoxGeometry(.16,.24,.16),new THREE.MeshStandardMaterial({color:0xffc27a,emissive:0xff9d3a,emissiveIntensity:1.6}));box.position.set(sx,3.1,z);scene.add(box);
   const gl=glow(GLOW_WARM,1.6,.8);gl.position.set(sx,3.1,z);scene.add(gl);
-  const pl=new THREE.PointLight(0xff9f50,1.1,9,2);pl.position.set(sx+(x>0?-.3:.3),3.1,z);scene.add(pl);});
+  const pl=new THREE.PointLight(0xff9f50,1.1,9,2);pl.position.set(sx+(x>0?-.3:.3),3.1,z);scene.add(pl);WALL_LAMPS.push(pl);});
+// 바닥에 구운 조명(블렌더 Cycles, 2026-11-24): 벽 등불 4개의 직접광·반사광·기둥 그림자(floor_light) + 기둥 밑동·벽 모서리 AO(floor_ao).
+// 기둥·등불·받침대 위치를 바꾸면 다시 구워야 한다. 이미지를 못 불러오면 지금 조명 그대로.
+{const L=new THREE.TextureLoader(),fm=floor.material;floor.geometry.setAttribute('uv2',floor.geometry.attributes.uv);
+  L.load('textures/floor_light.jpg',t=>{t.encoding=THREE.sRGBEncoding;fm.lightMap=t;fm.lightMapIntensity=LM_INT;fm.needsUpdate=true;
+    WALL_LAMPS.forEach(p=>p.distance=4.2); // 바닥 빛은 라이트맵이 맡고, 실시간 등불은 기둥·벽 근처만 비춤
+  },undefined,e=>console.warn('바닥 라이트맵을 불러오지 못해 실시간 조명만 씁니다',e));
+  L.load('textures/floor_ao.jpg',t=>{fm.aoMap=t;fm.aoMapIntensity=AO_INT;fm.needsUpdate=true;},undefined,()=>{});}
 for(let z=-8;z<=8;z+=4){const bm=new THREE.Mesh(new THREE.BoxGeometry(22,.34,.4),beamMat);bm.position.set(0,ROOM.h,z);scene.add(bm);}
 for(const x of[-9.9,9.9]){const bm=new THREE.Mesh(new THREE.BoxGeometry(.4,.34,22),beamMat);bm.position.set(x,ROOM.h-.05,0);scene.add(bm);}
 
