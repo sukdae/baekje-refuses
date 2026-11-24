@@ -247,7 +247,25 @@ function textPlane(lines,{w=4,h=1,size=64,color='#e6c98a',bg=null,vertical=false
 // ---------- 전시관 ----------
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.x*2,ROOM.zmax-ROOM.zmin),new THREE.MeshStandardMaterial({map:floorTex,roughness:.82,metalness:.05}));
 floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
-const wallMat=new THREE.MeshStandardMaterial({map:wallTex,roughness:.95});
+// 코스 1 벽: 무령왕릉 현실처럼 무늬 벽돌을 '네 단 뉘어 쌓고 한 단 세워 쌓는'(사평일수, 四平一垂) 방식으로 그림.
+// 근거: 한국민족문화대백과사전 「무령왕릉」(encykorea E0019018) — 사평일수 축조, 연꽃무늬 벽돌, 위치에 따라 사격자 망상문과 연화문을 다르게 배열.
+// 벽돌 크기·무늬 배치는 형상 표현일 뿐 실측이 아님. 한 장(1024×512) = 가로 1.56m, 세로 0.78m(뉘어 쌓은 4단 + 세워 쌓은 1단).
+const brickTex=tex(1024,512,(x,w,h)=>{x.fillStyle='#141315';x.fillRect(0,0,w,h);
+  const flatH=72,upH=h-flatH*4,shade=(i)=>{const g=40+((i*37)%13);return `rgb(${g},${g-1},${g+2})`;};
+  const lattice=(bx,by,bw,bh)=>{x.save();x.beginPath();x.rect(bx,by,bw,bh);x.clip();x.strokeStyle='rgba(150,145,140,.16)';x.lineWidth=2;
+    for(let k=-bh;k<bw;k+=18){x.beginPath();x.moveTo(bx+k,by);x.lineTo(bx+k+bh,by+bh);x.stroke();x.beginPath();x.moveTo(bx+k+bh,by);x.lineTo(bx+k,by+bh);x.stroke();}x.restore();};
+  // 세워 쌓은 단(맨 위): 좁고 긴 벽돌마다 연꽃 한 송이
+  for(let i=0;i<8;i++){const bx=i*128+2,by=2;x.fillStyle=shade(i+3);x.fillRect(bx,by,124,upH-4);
+    x.strokeStyle='rgba(0,0,0,.35)';x.lineWidth=2;x.strokeRect(bx+6,by+6,112,upH-16);
+    lotus(x,bx+62,by+upH/2-2,40,'rgba(170,160,145,.28)');}
+  // 뉘어 쌓은 4단: 반 장씩 엇갈림. 가운데 망상문, 이음새 쪽에 반쪽 연꽃(이웃 벽돌과 만나면 한 송이)
+  for(let r=0;r<4;r++){const y0=upH+r*flatH,off=r%2?128:0;
+    for(let i=-1;i<5;i++){const bx=i*256+off+2,by=y0+2,bw=252,bh=flatH-4;x.fillStyle=shade(r*5+i+9);x.fillRect(bx,by,bw,bh);
+      lattice(bx+40,by+8,bw-80,bh-16);
+      x.save();x.beginPath();x.rect(bx,by,bw,bh);x.clip();lotus(x,bx,by+bh/2,26,'rgba(170,160,145,.24)');lotus(x,bx+bw,by+bh/2,26,'rgba(170,160,145,.24)');x.restore();}}
+  for(let k=0;k<3000;k++){x.fillStyle=`rgba(${Math.random()<.5?0:200},${Math.random()<.5?0:190},180,${Math.random()*.05})`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}
+},[22/1.56,ROOM.h/.78]);
+const wallMat=new THREE.MeshStandardMaterial({map:brickTex,bumpMap:brickTex,bumpScale:.025,roughness:.92});
 function wall(w,x,z,ry){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,ROOM.h),wallMat);m.position.set(x,ROOM.h/2,z);m.rotation.y=ry;m.receiveShadow=true;scene.add(m);
   const base=new THREE.Mesh(new THREE.BoxGeometry(w,.35,.12),new THREE.MeshStandardMaterial({color:0x2a1f19,roughness:.9}));base.position.set(x,.17,z);base.rotation.y=ry;base.translateZ(.06);scene.add(base);}
 wall(22,0,ROOM.zmin,0);wall(22,0,ROOM.zmax,Math.PI);wall(22,-ROOM.x,0,Math.PI/2);wall(22,ROOM.x,0,-Math.PI/2);
@@ -265,7 +283,7 @@ const WALL_LAMPS=[],LM_INT=.45,AO_INT=1;
 [[-9.9,-3.5],[9.9,-3.5],[-9.9,6.5],[9.9,6.5]].forEach(([x,z])=>{const sx=x>0?x-.42:x+.42;
   const box=new THREE.Mesh(new THREE.BoxGeometry(.16,.24,.16),new THREE.MeshStandardMaterial({color:0xffc27a,emissive:0xff9d3a,emissiveIntensity:1.6}));box.position.set(sx,3.1,z);scene.add(box);
   const gl=glow(GLOW_WARM,1.6,.8);gl.position.set(sx,3.1,z);scene.add(gl);
-  const pl=new THREE.PointLight(0xff9f50,1.1,9,2);pl.position.set(sx+(x>0?-.3:.3),3.1,z);scene.add(pl);WALL_LAMPS.push(pl);});
+  const pl=new THREE.PointLight(0xff9f50,1.1,9,2);pl.position.set(sx+(x>0?-.3:.3),3.1,z);scene.add(pl);pl.userData={gl,box,base:pl.intensity,ph:Math.random()*9};WALL_LAMPS.push(pl);});
 // 바닥에 구운 조명(블렌더 Cycles, 2026-11-24): 벽 등불 4개의 직접광·반사광·기둥 그림자(floor_light) + 기둥 밑동·벽 모서리 AO(floor_ao).
 // 기둥·등불·받침대 위치를 바꾸면 다시 구워야 한다. 이미지를 못 불러오면 지금 조명 그대로.
 {const L=new THREE.TextureLoader(),fm=floor.material;floor.geometry.setAttribute('uv2',floor.geometry.attributes.uv);
@@ -275,6 +293,27 @@ const WALL_LAMPS=[],LM_INT=.45,AO_INT=1;
   L.load('textures/floor_ao.jpg',t=>{fm.aoMap=t;fm.aoMapIntensity=AO_INT;fm.needsUpdate=true;},undefined,()=>{});}
 for(let z=-8;z<=8;z+=4){const bm=new THREE.Mesh(new THREE.BoxGeometry(22,.34,.4),beamMat);bm.position.set(0,ROOM.h,z);scene.add(bm);}
 for(const x of[-9.9,9.9]){const bm=new THREE.Mesh(new THREE.BoxGeometry(.4,.34,22),beamMat);bm.position.set(x,ROOM.h-.05,0);scene.add(bm);}
+// 보주형 벽감과 등잔: 무령왕릉 현실에는 등잔을 두려고 북벽에 1개, 동·서벽에 2개씩 작은 화염문을 채색한 보주형 벽감이 있다
+// (한국민족문화대백과사전 「무령왕릉」). 여기서는 뒷벽 1개, 좌우 벽 2개씩. 모양·크기·화염문은 형상 표현(실측 아님).
+// 휴대폰 부담을 늘리지 않으려고 실시간 조명은 넣지 않고 빛나는 그림(스프라이트)만 흔들리게 한다.
+const NICHES=[];
+{const nicheTex=tex(128,192,(x,w,h)=>{
+    const path=()=>{x.beginPath();x.moveTo(18,h-8);x.lineTo(18,92);x.bezierCurveTo(18,52,64,46,64,10);x.bezierCurveTo(64,46,110,52,110,92);x.lineTo(110,h-8);x.closePath();};
+    x.save();path();x.clip();const g=x.createLinearGradient(0,h,0,0);g.addColorStop(0,'#5a3418');g.addColorStop(.45,'#24140d');g.addColorStop(1,'#0c0807');x.fillStyle=g;x.fillRect(0,0,w,h);x.restore();
+    x.lineWidth=7;x.strokeStyle='#2b2421';path();x.stroke();
+    // 테두리를 따라 붉은·주황 화염문
+    x.lineWidth=2.2;for(let k=0;k<11;k++){const t=k/10,px=k<5?18+t*2*46:64+(t-.5)*2*46,py=k<5?92-t*2*82:10+(t-.5)*2*82;
+      x.strokeStyle=k%2?'rgba(196,78,40,.85)':'rgba(214,150,60,.85)';x.beginPath();x.moveTo(px,py+8);x.quadraticCurveTo(px+7,py,px,py-9);x.quadraticCurveTo(px-5,py-2,px,py+8);x.stroke();}
+    x.fillStyle='#3a2a20';x.fillRect(46,h-30,36,10);x.fillStyle='#55402e';x.beginPath();x.ellipse(64,h-30,20,5,0,0,Math.PI*2);x.fill();});
+  const flameTex=glowTex('rgba(255,250,225,1)','rgba(255,170,70,.55)');
+  const nMat=new THREE.MeshStandardMaterial({map:nicheTex,transparent:true,roughness:.9,emissive:0xffffff,emissiveMap:nicheTex,emissiveIntensity:.25});
+  [[0,ROOM.zmin+.03,0],[-ROOM.x+.03,-5.75,Math.PI/2],[-ROOM.x+.03,-1.25,Math.PI/2],[ROOM.x-.03,-5.75,-Math.PI/2],[ROOM.x-.03,-1.25,-Math.PI/2]].forEach(([nx,nz,ry])=>{
+    const g=new THREE.Group();g.position.set(nx,2.35,nz);g.rotation.y=ry;
+    const face=new THREE.Mesh(new THREE.PlaneGeometry(.5,.75),nMat);
+    const flame=new THREE.Sprite(new THREE.SpriteMaterial({map:flameTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));flame.scale.set(.12,.22,1);flame.position.set(0,-.2,.04);
+    const halo=glow(GLOW_WARM,1.5,.32);halo.position.set(0,-.08,.12);
+    g.add(face,flame,halo);scene.add(g);NICHES.push({flame,halo,ph:Math.random()*9});});}
+
 
 // 뒷벽: 전시 제목과 세로 걸개
 const title=textPlane(['백제 레퓌제','낙선전 · 남은 목소리'],{w:6,h:1.5,size:120});title.position.set(0,4.55,ROOM.zmin+.05);scene.add(title);
@@ -290,7 +329,16 @@ const stone=new THREE.MeshStandardMaterial({map:stoneTex,roughness:1});
 const plinthDark=new THREE.MeshStandardMaterial({color:0x2a2226,roughness:.7}),plinthTop=new THREE.MeshStandardMaterial({color:0x14100f,roughness:.4,metalness:.2});
 const glassMat=new THREE.MeshStandardMaterial({color:0xbfd8ff,transparent:true,opacity:.07,roughness:.05,metalness:.1,depthWrite:false});
 const edgeMat=new THREE.LineBasicMaterial({color:0xc9a24b,transparent:true,opacity:.45});
-const beamConeMat=new THREE.MeshBasicMaterial({color:0xffdcaa,transparent:true,opacity:.045,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+// 스포트라이트 빛줄기: 위(광원)에서 진하고 아래로 갈수록, 가장자리로 갈수록 옅어지며 결이 천천히 흐름
+const FX_T={value:0};
+const beamConeMat=new THREE.ShaderMaterial({uniforms:{uCol:{value:new THREE.Color(0xffdcaa)},uOp:{value:.14},uT:FX_T},
+  vertexShader:`varying float vH;varying float vF;varying float vA;
+    void main(){vH=.5-position.y/4.6;vA=atan(position.z,position.x);vec4 mv=modelViewMatrix*vec4(position,1.);
+      vec3 n=normalize(normalMatrix*normal);vF=abs(dot(n,normalize(-mv.xyz)));gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`uniform vec3 uCol;uniform float uOp;uniform float uT;varying float vH;varying float vF;varying float vA;
+    void main(){float a=uOp*pow(vF,1.6)*mix(1.,.3,vH)*smoothstep(1.,.72,vH)*smoothstep(0.,.08,vH);
+      a*=.8+.2*sin(vA*7.+uT*.4)*sin(vA*3.-uT*.27);gl_FragColor=vec4(uCol*a,1.);}`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
 const ANIM=[];
 
 function makeIncense(){const o=new THREE.Group();
@@ -834,6 +882,10 @@ function loop(){
   if(near&&!open&&inside()){promptEl.style.display='flex';promptEl.innerHTML=`<span class="k">${coarse?'▶':'E'}</span>${near.name} <small>${near.emo}</small>`;}else promptEl.style.display='none';
   // 등불이 살짝 흔들림
   const fl=1.35+Math.sin(t*7.3)*.08+Math.sin(t*13.1)*.05;lanternLight.intensity=fl;lanternGlow.material.opacity=.75+Math.sin(t*9)*.08;
+  // 벽 등불·벽감 등잔도 제각각 살짝 흔들림, 빛줄기 결이 흐름
+  FX_T.value=t;
+  WALL_LAMPS.forEach(p=>{const u=p.userData,k=1+Math.sin(t*6.1+u.ph)*.06+Math.sin(t*15.3+u.ph*2)*.04;p.intensity=u.base*k;u.gl.material.opacity=.8*k;u.box.material.emissiveIntensity=1.6*k;});
+  NICHES.forEach(n=>{const k=1+Math.sin(t*8.3+n.ph)*.12+Math.sin(t*17.9+n.ph)*.07;n.flame.scale.set(.12*(2-k),.22*k,1);n.halo.material.opacity=.32*k;});
   // 향로·달·연기
   const inc=ITEMS.find(i=>i.id==='incense');if(inc.obj)inc.obj.rotation.y=t*.18;
   const jm=ITEMS.find(i=>i.id==='jeongeup');if(jm.moon){jm.moon.material.emissiveIntensity=.8+Math.sin(t*1.1)*.12;jm.halo.material.opacity=.45+Math.sin(t*1.1)*.1;jm.moon.position.y=jm.halo.position.y=2.25+Math.sin(t*.6)*.05;}
